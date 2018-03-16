@@ -1,29 +1,71 @@
 .color {
-  background-color:#ddd;
+	background-color:#ddd;
 
 }
 
-.btn-group button {
-    background-color: #4CAF50; /* Green background */
-    border: 1px solid green; /* Green border */
-    color: white; /* White text */
-    padding: 10px 24px; /* Some padding */
-    cursor: pointer; /* Pointer/hand icon */
-    float: left; /* Float the buttons side by side */
+/*button group start*/
+.btn-timespan button {
+	background-color: #4CAF50; /* Green background */
+	border: 1px solid green; /* Green border */
+	color: white; /* White text */
+	padding: 10px 24px; /* Some padding */
+	cursor: pointer; /* Pointer/hand icon */
+	float: left; /* Float the buttons side by side */
+}
+
+.btn-choose{
+	background-color: #272882;
+	border: 1px solid black; /* Green border */
+	color: white; /* White text */
+	padding: 10px 24px; /* Some padding */
+	cursor: pointer; /* Pointer/hand icon */
+	float: left; /* Float the buttons side by side */
+}
+
+.btn-quote button:not(.btn-choose) {
+	background-color: #36304A; /* Green background */
+	border: 1px solid black; /* Green border */
+	color: white; /* White text */
+	padding: 10px 24px; /* Some padding */
+	cursor: pointer; /* Pointer/hand icon */
+	float: left; /* Float the buttons side by side */
 }
 
 /* Clear floats (clearfix hack) */
 .btn-group:after {
-    content: "";
-    clear: both;
-    display: table;
+	content: "";
+	clear: both;
+	display: table;
 }
 
 .btn-group button:not(:last-child) {
-    border-right: none; /* Prevent double borders */
+	border-right: none; /* Prevent double borders */
 }
 
 /* Add a background color on hover */
 .btn-group button:hover {
-    background-color: #3e8e41;
+	background-color: #3e8e41;
 }
+
+.btn-quote button:hover {
+	background-color: #272882;
+}
+/*button group end*/
+
+
+/*  Table scroll start*/
+tbody {
+    display:block;
+    height:400px;
+    overflow-y:auto;
+    overflow-x: hidden;
+}
+thead, tbody tr {
+    display:table;
+    width:100%;
+    table-layout:fixed;/* even columns width , fix width of table too*/
+}
+thead {
+    width: calc( 100% - 1em )/* scrollbar is average 1em/16px width, remove it from thead width */
+}
+/* Table scrool end*/

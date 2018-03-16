@@ -1,5 +1,7 @@
-const wsuri = "wss://api2.poloniex.com";
+const wsuri = "wss://api2.poloniex.com"; // ws address
 
+
+// add python like string format 
 String.prototype.format = function () {
     var args = [].slice.call(arguments);
     return this.replace(/(\{\d+\})/g, function (a){
@@ -17,9 +19,8 @@ var high = open;
 var low = open;
 var data0 = []
 var timeSpan = 60; 
-var chartPair = 'USDT_ETH';
-var Change = false;
-
+var base = 'ETH';
+var quote = 'USDT';
 poloniex = function () {
     socket = function () {
         var self = this;
@@ -33,17 +34,18 @@ poloniex = function () {
 
             function tickEvent(data) {
                 cp = self.ids[data[0]];
+                let change = false
 
                 try {
                     if (self.tick[cp].price !== parseFloat(data[1]) )
-                        Change = true ;
+                        change = true ;
                     self.tick[cp].price = parseFloat(data[1]);
                     self.tick[cp].high = parseFloat(data[8]);
                     self.tick[cp].low = parseFloat(data[9]);
                     self.tick[cp].volume = parseFloat(data[5]);
                     self.tick[cp].change = parseFloat(data[4]) * 100;
-                    if ( cp.indexOf('USDT_') !== -1  )
-                        updateTickerTable( cp ) ;
+                    if ( cp.indexOf(quote+'_') !== -1  )
+                        updateTickerTable( cp , change ) ;
 
 
                     trade = {
@@ -51,7 +53,7 @@ poloniex = function () {
                         'date':Date.now()/1000
                     }
 
-                    if (cp === 'USDT_ETH'){
+                    if (cp === quote+'_'+base ){
                         if ( trade.date > startTime+timeSpan ) {
 
                             data0.categoryData.push(start)
@@ -80,7 +82,6 @@ poloniex = function () {
                     $.getJSON('https://poloniex.com/public?command=returnTicker',data=>{
                         let row ;
                         for (let d in data) {
-                            let coin = d.replace('USDT_','');
                             self.ids[data[d]['id']] = d;
                             self.cps[d] = data[d]['id'];
                             self.tick[d] = {
@@ -124,7 +125,7 @@ poloniex = function () {
 
         function webSockets_subscribe(conn) {
 
-            console.log('開始訂閱');
+            console.log('Success subscribe~!');
             if (conn.readyState === 1) {
                 var params = {command: "subscribe", channel: 1002};
                 conn.send(JSON.stringify(params));
@@ -195,60 +196,85 @@ poloniex = function () {
 const exchange = new poloniex();
 exchange.start();
 
+
 function writeTickerTable(e){
     let row ;
     for(let pair in exchange.ws.tick ){
-        if ( pair.indexOf('USDT_') !== -1 ){
-            coin = pair.replace('USDT_','');
-            row = "<tr id=tickTable_"+coin+"><td class='column1' >"+coin+"</td><td class='column2'>"+exchange.ws.tick[pair].price+"</td><td class='column3'>"+exchange.ws.tick[pair].volume+"</td><td class='column4'>"+exchange.ws.tick[pair].change+"</td></tr>"
+        if ( pair.indexOf(quote+'_') !== -1 ){
+            coin = pair.replace(quote + '_','');
+            row = "<tr class='tickTr' id=tickTable_"+pair+"><td class='column1' >"+coin+"</td><td class='column2'>"+exchange.ws.tick[pair].price+"</td><td class='column3'>"+exchange.ws.tick[pair].volume+"</td><td class='column4'>"+exchange.ws.tick[pair].change+"</td></tr>"
             $('#TickerTable tbody').append(row);
         }
     }
     return e
 }
 
-function updateTickerTable(pair){
-  let c = Change ;
-  Change = false ;
-  let coin = pair.replace('USDT_','');
+// updata table when tick event
+function updateTickerTable(pair,c){
+  let coin = pair.replace(quote+'_','');
   let row = "<td class='column1'>"+coin+"</td><td class='column2'>"+exchange.ws.tick[pair].price+"</td><td class='column3'>"+exchange.ws.tick[pair].volume+"</td><td class='column4'>"+exchange.ws.tick[pair].change+"</td>"
-  $('#tickTable_'+coin).html(row);
-  if (c ){
-      $('#tickTable_'+coin).addClass('color');
+  $('#tickTable_'+pair).html(row);
+  if (c){
+      $('#tickTable_'+pair).addClass('color');
 
       setTimeout(()=>{
-        $('#tickTable_'+coin).removeClass('color');
+        $('#tickTable_'+pair).removeClass('color');
     },500);
   }
+
 }
 
+
+//get trade history from poloniex api
 function getHistoryData(pair){
     return new Promise(resolve=>{
         let starttime = ( Date.now() / 1000 ) - 86400*30
-        $.getJSON('https://poloniex.com/public?command=returnTradeHistory&currencyPair={0}&start={1}'.format(pair,starttime),data=>{
-            for ( let trade of data ){
-                trade.date = new Date(trade.date).getTime()/1000;
-                historydata.push(trade)
-            }
-            historydata.sort((x,y)=>{
-                return x.date - y.date
-            })
-            resolve(); // timespan
-        })
-    })
+        let datas = []
+        try {
+            $.getJSON('https://poloniex.com/public?command=returnTradeHistory&currencyPair={0}&start={1}'.format(pair,starttime),data=>{
+                for ( let trade of data ){
+                    trade.date = new Date(trade.date).getTime()/1000;
+                    datas.push(trade)
+                }
+                datas.sort((x,y)=>{
+                    return x.date - y.date
+                })
+            resolve(datas); // Orginal Data from api
+        });
+        } catch (err){
+            console.log(err)
+            alert('wait');
+            setTimeout(()=>{
+                $.getJSON('https://poloniex.com/public?command=returnTradeHistory&currencyPair={0}&start={1}'.format(pair,starttime),data=>{
+                    for ( let trade of data ){
+                        trade.date = new Date(trade.date).getTime()/1000;
+                        datas.push(trade)
+                    }
+                    datas.sort((x,y)=>{
+                        return x.date - y.date
+                    })
+            resolve(datas); // Orginal Data from api
+        });
+
+            } , 500 );
+        }
+    });
 }
 
-function historyDataToKline(){
-   startTime = historydata[0].date;
-   start = timestampToDate(startTime);
-   open = historydata[0].rate;
-   close = open;
-   high = open;
-   low = open;
-   for (let trade of historydata){
+
+// format orginal data to Echarts candlestick data
+function historyDataToKline(datas){
+ startTime = datas[0].date;
+ start = timestampToDate(startTime);
+ open = datas[0].rate;
+ close = open;
+ high = open;
+ low = open;
+ historydata = [];
+ for (let trade of datas){
 
     if ( trade.date > startTime+timeSpan ) {
-        data0.push([start,open,close,low,high])
+        historydata.push([start,open,close,low,high])
         startTime = trade.date;
         start = timestampToDate(startTime);
         open = trade.rate;
@@ -264,35 +290,37 @@ function historyDataToKline(){
     close = trade.rate;
 
 }
-data0.push([start,open,close,low,high])
+
+
+historydata.push([start,open,close,low,high])
 
 }
 
-function pad(num, padding) {
-    if (typeof num !== "string")
-        num = num.toString();
-
-    while (num.length < padding)
-        num = "0" + num;
-
-    return num;
-}
 
 
 function timestampToDate(timestamp) {
+    function pad(num, padding) {
+        if (typeof num !== "string")
+            num = num.toString();
+
+        while (num.length < padding)
+            num = "0" + num;
+
+        return num;
+    }
     let rDate = new Date(parseInt(timestamp)*1000);
     let date = rDate.getUTCFullYear() + "-" + pad(rDate.getUTCMonth() + 1, 2) + "-" + pad(rDate.getUTCDate(), 2);
-    let time = pad(rDate.getUTCHours(), 2) + ":" + pad(rDate.getMinutes(), 2) + ":" + pad(rDate.getSeconds(), 2);
+    let time = pad(rDate.getUTCHours(), 2) + ":" + pad(rDate.getMinutes(), 2) ; // + ":" + pad(rDate.getSeconds(), 2);
     return date +' ' + time ;
 
 }
 
-getHistoryData(chartPair).then(historyDataToKline).then(()=>{
-    data0= splitData(data0)
-    console.log(data0);
+// Echart Candlestick Start
+
+function setOption(){
     option = {
         title: {
-            text: 'ETH',
+            text:  quote+'_'+base ,
             left: 0
         },
         tooltip: {
@@ -357,7 +385,7 @@ getHistoryData(chartPair).then(historyDataToKline).then(()=>{
                 label: {
                     normal: {
                         formatter: function (param) {
-                            return param != null ? Math.round(param.value) : '';
+                            return param != null ? param.value.toFixed(3) : '';
                         }
                     }
                 },
@@ -471,11 +499,9 @@ getHistoryData(chartPair).then(historyDataToKline).then(()=>{
         ]
     };
 
-    ;
-    if (option && typeof option === "object") {
-        myChart.setOption(option, true);
-    }
-})
+}
+
+DrawChart()
 
 window.setInterval(function(){
   myChart.setOption(option, true);
@@ -506,8 +532,9 @@ function splitData(rawData) {
     };
 }
 
-function calculateMA(dayCount) {
+function calculateMA(day) {
     var result = [];
+    let dayCount = (86400/timeSpan)*day;
     for (var i = 0, len = data0.values.length; i < len; i++) {
         if (i < dayCount) {
             result.push('-');
@@ -515,17 +542,111 @@ function calculateMA(dayCount) {
         }
         var sum = 0;
         for (var j = 0; j < dayCount; j++) {
-            sum += data0.values[i - j][1];
+            sum += parseFloat(data0.values[i - j][1]);
         }
+
         result.push(sum / dayCount);
     }
     return result;
 }
 
-$('#min1').click(()=>{
-    alert('1 min') ;
-})
+function DrawChart(){
+    $('#container').block({  message: '<img src="http://www.broadwaybalancesamerica.com/images/ajax-loader.gif" />',
+        css: {
+            border:     'none',
+            backgroundColor:'transparent'
+        }
+    });  ;
+    getHistoryData( quote+'_'+base ).then(historyDataToKline).then(()=>{
+        data0= splitData(historydata);
+        setOption();
+        if (option && typeof option === "object") {
+            myChart.setOption(option, true);
+            $('#container').unblock();  
+        }
+    });
+}
+// Echart Candlestick End
 
 
 
+//reDraw Chart When tr been click
+$('#TickerTable').on('click','.tickTr',(e)=>{
+    let target = e.target.tagName.toLowerCase() === 'td'? $(e.target).parent(): $(e.target) ;
+    base = target.attr('id').replace('tickTable_'+quote+'_','');
+    DrawChart();
+});
 
+
+//reDraw Chart with different timespan
+$('.btn-timespan').on('click',(e)=>{
+    timeSpan = parseInt($(e.target).attr('timeSpan')) ;
+    DrawChart()
+});
+
+
+
+//re Write Tick Table With different Quote
+$('.btn-quote').on('click',(e)=>{
+    $(e.target).siblings('.btn-choose').removeClass('btn-choose');
+    $(e.target).addClass('btn-choose');
+    $('#TickerTable tbody').html('');
+    quote = $(e.target).html();
+    writeTickerTable(null)
+});
+
+/*Table Sortable Start*/
+function sortTable(table, col, reverse) {
+    var tb = table.tBodies[0], // use `<tbody>` to ignore `<thead>` and `<tfoot>` rows
+        tr = Array.prototype.slice.call(tb.rows, 0), // put rows into array
+        i;
+        reverse = -((+reverse) || -1);
+
+    tr = tr.sort(function (a, b) { // sort rows
+        let reval ;
+        try{
+            if ( isNaN( parseFloat(a.cells[col].textContent.trim())))
+                throw 'This is String' ;
+            reval =  floatCompare(parseFloat( a.cells[col].textContent.trim()) // using `.textContent.trim()` for test cpmpare floats
+                ,parseFloat(b.cells[col].textContent.trim())
+                );
+        }catch(err){
+            reval = a.cells[col].textContent.trim() // using `.textContent.trim()` for test
+            .localeCompare(b.cells[col].textContent.trim())
+
+        }
+        return reverse // `-1 *` if want opposite order
+        * reval ;
+    });
+    for(i = 0; i < tr.length; ++i) tb.appendChild(tr[i]); // append each row in order
+}
+
+function floatCompare(a,b){
+    if ( a === b )
+        return 0
+    if (a < b)
+        return 1
+    else if ( a > b )
+        return -1
+}
+
+function makeSortable(table) {
+    var th = table.tHead, i;
+    th && (th = th.rows[0]) && (th = th.cells);
+    if (th) i = th.length;
+    else return; // if no `<thead>` then do nothing
+    while (--i >= 0) (function (i) {
+        var dir = 1;
+        th[i].addEventListener('click', function () {sortTable(table, i, (dir = 1 - dir))});
+    }(i));
+}
+
+function makeAllSortable(parent) {
+    parent = parent || document.body;
+    var t = parent.getElementsByTagName('table'), i = t.length;
+    while (--i >= 0) makeSortable(t[i]);
+}
+
+window.onload = function () {makeAllSortable();};
+
+/*Table Sortable End*/
