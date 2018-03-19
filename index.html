@@ -30,18 +30,18 @@
                         <button>XMR</button>
                         <button class='btn-choose'>USDT</button>
                     </div>
-                        <table id="TickerTable"  >
-                            <thead>
-                                <tr class="table100-head">
-                                    <th class="column1">Coin</th>
-                                    <th class="column2">Price</th>
-                                    <th class="column3">Volume</th>
-                                    <th class="column4">Change</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                            </tbody>
-                        </table>
+                    <table id="tickerTable"  >
+                        <thead>
+                            <tr class="table100-head">
+                                <th class="column1">Coin</th>
+                                <th class="column2">Price</th>
+                                <th class="column3">Volume</th>
+                                <th class="column4">Change</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
@@ -56,6 +56,41 @@
       <button timeSpan='3600'>1hour</button>
   </div>
 
+  <div>
+    <table id="asksTable" class='traderTable'>
+        <thead>
+            <tr class="table100-head">
+                <th class="column1">Price</th>
+                <th class="column2">ETH</th>
+                <th class="column3">USDT</th>
+                <th class="column4">Sum(USDT)</th>
+            </tr>
+        </thead>
+        <tbody class='data'>
+        </tbody>
+        <tbody class='loadMore'>
+            <td>Load 100 More</td>
+        </tbody>
+    </table>
+
+    <table id="bidsTable" class='traderTable'>
+        <thead>
+            <tr class="table100-head">
+                <th class="column1">Price</th>
+                <th class="column2">ETH</th>
+                <th class="column3">USDT</th>
+                <th class="column4">Sum(USDT)</th>
+            </tr>
+        </thead>
+        <tbody class='data'>
+        </tbody>
+        <tbody class='loadMore'>
+            <td>Load 100 More</td>
+        </tbody>
+    </table>
+</div>
+
+<div id="tradeChart" style="height: 100%"></div>
 
 </body>
 <script src="js/jquery-3.3.1.min.js"></script>

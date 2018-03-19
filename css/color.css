@@ -54,7 +54,7 @@
 
 
 /*  Table scroll start*/
-tbody {
+tbody:not(.loadMore) {
     display:block;
     height:400px;
     overflow-y:auto;
@@ -69,3 +69,4 @@ thead {
     width: calc( 100% - 1em )/* scrollbar is average 1em/16px width, remove it from thead width */
 }
 /* Table scrool end*/
+

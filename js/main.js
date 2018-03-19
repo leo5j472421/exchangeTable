@@ -2,297 +2,376 @@ const wsuri = "wss://api2.poloniex.com"; // ws address
 
 
 // add python like string format 
-String.prototype.format = function () {
+String.prototype.format = function() {
     var args = [].slice.call(arguments);
-    return this.replace(/(\{\d+\})/g, function (a){
-        return args[+(a.substr(1,a.length-2))||0];
+    return this.replace(/(\{\d+\})/g, function(a) {
+        return args[+(a.substr(1, a.length - 2)) || 0];
     });
 };
 
-var historydata=[];
+var historydata = [];
 var start;
-var startTime ;
-var start ;
-var open ;
+var startTime;
+var start;
+var open;
 var close = open;
 var high = open;
 var low = open;
 var data0 = []
-var timeSpan = 60; 
+var timeSpan = 60;
 var base = 'ETH';
 var quote = 'USDT';
-poloniex = function () {
-    socket = function () {
-        var self = this;
-        this.tick = {};
-        this.trade = {};
-        this.ids = {};
-        this.cps = {};
-        this.marketChannel = [];
-        this.market = ['USDT_BTC', 'USDT_ETH', 'USDT_LTC', 'USDT_XRP'];
-        for (let cp in this.market) this.trade[this.market[cp]] = {'asks': {}, 'bids': {}};
+var tradeDisplayLimit = 50;
+poloniex = function() {
+    var self = this;
+    this.tick = {};
+    this.trade = {
+        'asks': {},
+        'bids': {}
+    };
+    this.ids = {};
+    this.cps = {};
+    this.marketChannel ;
+    function tickEvent(data) {
+        cp = self.ids[data[0]];
+        let change = false
 
-            function tickEvent(data) {
-                cp = self.ids[data[0]];
-                let change = false
-
-                try {
-                    if (self.tick[cp].price !== parseFloat(data[1]) )
-                        change = true ;
-                    self.tick[cp].price = parseFloat(data[1]);
-                    self.tick[cp].high = parseFloat(data[8]);
-                    self.tick[cp].low = parseFloat(data[9]);
-                    self.tick[cp].volume = parseFloat(data[5]);
-                    self.tick[cp].change = parseFloat(data[4]) * 100;
-                    if ( cp.indexOf(quote+'_') !== -1  )
-                        updateTickerTable( cp , change ) ;
-
-
-                    trade = {
-                        'rate':self.tick[cp].price,
-                        'date':Date.now()/1000
-                    }
-
-                    if (cp === quote+'_'+base ){
-                        if ( trade.date > startTime+timeSpan ) {
-
-                            data0.categoryData.push(start)
-                            data0.values.push([open,close,low,high])
-                            startTime = trade.date;
-                            start = timestampToDate(startTime);
-                            open = trade.rate;
-                            high = open;
-                            low = open;
-                        }
+        try {
+            if (self.tick[cp].price !== parseFloat(data[1]))
+                change = true;
+            self.tick[cp].price = parseFloat(data[1]);
+            self.tick[cp].high = parseFloat(data[8]);
+            self.tick[cp].low = parseFloat(data[9]);
+            self.tick[cp].volume = parseFloat(data[5]);
+            self.tick[cp].change = parseFloat(data[4]) * 100;
+            if (cp.indexOf(quote + '_') !== -1)
+                updateTickerTable(cp, change);
 
 
-                        if ( trade.rate > high )
-                            high = trade.rate;
-                        else if ( trade.rate < low )
-                            low = trade.rate; 
-                        close = trade.rate;
-                    }
-                } catch (err) {
-                    console.log(err);
-                }
+            trade = {
+                'rate': self.tick[cp].price,
+                'date': Date.now() / 1000
             }
 
-            function tickInit(e) {
-                return new Promise(resolve=>{
-                    $.getJSON('https://poloniex.com/public?command=returnTicker',data=>{
-                        let row ;
-                        for (let d in data) {
-                            self.ids[data[d]['id']] = d;
-                            self.cps[d] = data[d]['id'];
-                            self.tick[d] = {
-                                'price': parseFloat(data[d].last),
-                                'volume': parseFloat(data[d].baseVolume),
-                                'change': parseFloat(data[d].percentChange) * 100,
-                                'high': parseFloat(data[d].high24hr),
-                                'low': parseFloat(data[d].low24hr)
-                            } ;
-                        }
-                        resolve (e.target);
-                    })
-                })
+            if (cp === quote + '_' + base) {
+                if (trade.date > startTime + timeSpan) {
 
-            }
-
-            function tradeEvent(datas, cp) {
-                for (let i in datas) {
-                    let data = datas[i];
-                    if (data[0] === 'o') {
-                        side = data[1] ? 'bids' : 'asks';
-                        if (data[3] === '0.00000000') {
-                            delete self.trade[cp][side][data[2]];
-                        } else self.trade[cp][side][data[2]] = data[3];
-                    }
+                    data0.categoryData.push(start)
+                    data0.values.push([open, close, low, high])
+                    startTime = trade.date;
+                    start = timestampToDate(startTime);
+                    open = trade.rate;
+                    high = open;
+                    low = open;
                 }
 
-                n = Object.keys(self.trade[cp].asks).map(parseFloat);
-            //console.log(Math.min(...n));
+
+                if (trade.rate > high)
+                    high = trade.rate;
+                else if (trade.rate < low)
+                    low = trade.rate;
+                close = trade.rate;
+            }
+        } catch (err) {
+            console.log(err);
         }
+    }
 
-        function tradeInit(data, cp) {
-            for (let a in [0, 1]) {
-                for (let rate in data[a]) {
-                    // 0 asks 1 bids
-                    if (a == 1) // bids
-                        self.trade[cp].bids[rate] = data[a][rate]; else self.trade[cp].asks[rate] = data[a][rate];
+    function tickInit() {
+        return new Promise(resolve => {
+            $.getJSON('https://poloniex.com/public?command=returnTicker', data => {
+                let row;
+                for (let d in data) {
+                    self.ids[data[d]['id']] = d;
+                    self.cps[d] = data[d]['id'];
+                    self.tick[d] = {
+                        'price': parseFloat(data[d].last),
+                        'volume': parseFloat(data[d].baseVolume),
+                        'change': parseFloat(data[d].percentChange) * 100,
+                        'high': parseFloat(data[d].high24hr),
+                        'low': parseFloat(data[d].low24hr)
+                    };
                 }
+
+                resolve(1002);
+            })
+        })
+
+    }
+
+    function tradeEvent(datas, cp) {
+        for (let i in datas) {
+            let data = datas[i];
+            if (data[0] === 'o') {
+                let side = data[1] ? 'bids' : 'asks';
+                let rate = parseFloat(data[2]).toString() ;
+                if (data[3] === '0.00000000') {
+                    delete self.trade[side][rate];
+                    removeTradeRow(side,rate);
+                } else 
+                {
+                    self.trade[side][rate] = parseFloat(data[3]);
+                    updateTradeTable( side,rate);
+                }
+
             }
         }
 
-        function webSockets_subscribe(conn) {
+        
+        //n = Object.keys(self.trade.asks).map(parseFloat);
+        //console.log(Math.min(...n));
+    }
 
-            console.log('Success subscribe~!');
-            if (conn.readyState === 1) {
-                var params = {command: "subscribe", channel: 1002};
-                conn.send(JSON.stringify(params));
-                for (let a in self.market) {
-                    //console.log();
-                    conn.send(JSON.stringify({command: "subscribe", channel: self.market[a]}));
-                }
+    function tradeInit(data, cp) {
+        for (let a in [0, 1]) {
+            for (let rate in data[a]) {
+                // 0 asks 1 bids
+                if (a == 1) // bids
+                    self.trade.bids[parseFloat(rate).toString()] = parseFloat(data[a][rate]);
+                else self.trade.asks[parseFloat(rate).toString()] = parseFloat(data[a][rate]);
             }
         }
 
-        this.start = function () {
 
-            const mySocket = new WebSocket(wsuri);
+        writeTradeTable('asks');
+        writeTradeTable('bids');
 
-            mySocket.onopen = function (e) {
+    }
 
-                tickInit(e).then(writeTickerTable).then(webSockets_subscribe);
+    this.webSockets_subscribe = channel=> {
+        let conn = self.conn
+        if (conn.readyState === 1) {
+            var params = {
+                command: "subscribe",
+                channel: channel
             };
+            conn.send(JSON.stringify(params));
+            console.log('Subscribe Channel {0}'.format(channel));
+            return 'USDT_ETH'
+        }
+    }
 
-            mySocket.onclose = function (e) {
+    this.webSockets_unsubscribe = channel=>{
+        let conn = self.conn ;
+        if (conn.readyState == 1 && channel > 0){
+            if (channel == self.marketChannel)
+                self.marketChannel = 0;
+            conn.send(JSON.stringify({command: "unsubscribe", channel: channel}));
+            console.log('Unsubscribe Channel {0}'.format(channel));
+            if ('subscriptions' in conn)
+                delete conn.subscriptions[channel];
+        }
+    }
 
-                console.log('Socket Close');
-            };
+    this.start = function() {
 
-            mySocket.onerror = function (e) {
+        const mySocket = new WebSocket(wsuri);
 
-                console.log('Socket Error');
-                console.log(e);
-            };
+        mySocket.onopen = function(e) {
 
-            mySocket.onmessage = function (e) {
-                data = JSON.parse(e.data);
-                channel = data[0];
-                var cp = self.ids[channel];
-                if (channel === 1002) {
-                    if (data[1] === 1) return; // subscript 1002 success
-                    tickEvent(data[2]);
-                } else if (channel === 1010) {
+            self.conn = e.target;
+            tickInit().then(writeTickerTable).then(self.webSockets_subscribe).then(self.webSockets_subscribe).then(() => {
+                sortTable(document.getElementById('tickerTable'), 1, 0); //SortByPrice
+            });
+        };
+
+        mySocket.onclose = function(e) {
+
+            console.log('Socket Close');
+        };
+
+        mySocket.onerror = function(e) {
+
+            console.log('Socket Error');
+            console.log(e);
+        };
+
+        mySocket.onmessage = function(e) {
+            data = JSON.parse(e.data);
+            channel = data[0];
+            var cp = self.ids[channel];
+            if (channel === 1002) {
+                if (data[1] === 1) return; // subscript 1002 success
+                tickEvent(data[2]);
+            } else if (channel === 1010) {}
+            // heartbeat
+            else if (channel === self.marketChannel ) {
+                tradeEvent(data[2], cp);
+                // Trade Event
+            } else {
+                self.trade = {
+                    'asks': {},
+                    'bids': {}
                 }
-                // heartbeat
 
-                else if (self.marketChannel.indexOf(channel) !== -1) {
-                    tradeEvent(data[2], cp);
-                    // Trade Event
-                } else {
-                    if (data[2][0][0] === 'i') { // TradeInit
-                        self.marketChannel.push(channel);
-                        tradeInit(data[2][0][1].orderBook, cp);
-                    }
-                    // Trade init
-                } // end if
-            };
+                if( data[1] === 0 ); // unsubscript
+                else if (data[2][0][0] === 'i') { // TradeInit
+                    self.marketChannel=channel;
+                    tradeInit(data[2][0][1].orderBook, cp);
+                }
+                // Trade init
+            } // end if
+        };
 
-            mySocket.onclose = function () {
-                console.log("Websocket connection closed");
-            };
+        mySocket.onclose = function() {
+            console.log("Websocket connection closed");
         };
     };
 
     //this.t = new tick();
-
-    this.start = function () {
-        this.ws = new socket();
-        this.ws.start();
-    };
 };
 
 const exchange = new poloniex();
 exchange.start();
 
 
-function writeTickerTable(e){
-    let row ;
-    for(let pair in exchange.ws.tick ){
-        if ( pair.indexOf(quote+'_') !== -1 ){
-            coin = pair.replace(quote + '_','');
-            row = "<tr class='tickTr' id=tickTable_"+pair+"><td class='column1' >"+coin+"</td><td class='column2'>"+exchange.ws.tick[pair].price+"</td><td class='column3'>"+exchange.ws.tick[pair].volume+"</td><td class='column4'>"+exchange.ws.tick[pair].change+"</td></tr>"
-            $('#TickerTable tbody').append(row);
+function writeTickerTable(e) {
+    let row;
+    for (let pair in exchange.tick) {
+        if (pair.indexOf(quote + '_') !== -1) {
+            coin = pair.replace(quote + '_', '');
+            row = "<tr class='tickTr' id=tickTable_" + pair + "><td class='column1' >" + coin + "</td><td class='column2'>" + exchange.tick[pair].price + "</td><td class='column3'>" + exchange.tick[pair].volume + "</td><td class='column4'>" + exchange.tick[pair].change + "</td></tr>"
+            $('#tickerTable tbody').append(row);
         }
     }
     return e
 }
 
 // updata table when tick event
-function updateTickerTable(pair,c){
-  let coin = pair.replace(quote+'_','');
-  let row = "<td class='column1'>"+coin+"</td><td class='column2'>"+exchange.ws.tick[pair].price+"</td><td class='column3'>"+exchange.ws.tick[pair].volume+"</td><td class='column4'>"+exchange.ws.tick[pair].change+"</td>"
-  $('#tickTable_'+pair).html(row);
-  if (c){
-      $('#tickTable_'+pair).addClass('color');
+function updateTickerTable(pair, c) {
+    let coin = pair.replace(quote + '_', '');
+    let row = "<td class='column1'>" + coin + "</td><td class='column2'>" + exchange.tick[pair].price + "</td><td class='column3'>" + exchange.tick[pair].volume + "</td><td class='column4'>" + exchange.tick[pair].change + "</td>"
+    $('#tickTable_' + pair).html(row);
+    if (c) {
+        $('#tickTable_' + pair).addClass('color');
 
-      setTimeout(()=>{
-        $('#tickTable_'+pair).removeClass('color');
-    },500);
-  }
+        setTimeout(() => {
+            $('#tickTable_' + pair).removeClass('color');
+        }, 500);
+    }
 
 }
 
+function writeTradeTable(side) {
+    let row;
+    let rates;
+    let rate ;
+    $('#'+side+'Table tbody.data').html('');
+    if ( side === 'asks' )
+        rates = Object.keys(exchange.trade.asks).map(parseFloat).sort((x,y)=>{return x - y });
+    else
+        rates = Object.keys(exchange.trade.bids).map(parseFloat).sort((x,y)=>{return y - x });
+
+    for(let index = 0; index <= tradeDisplayLimit && index < rates.length ; index ++ ){
+        let rate = rates[index].toString();
+        row = "<tr class='"+side+"Tr' id="+rate.toString()+side+"><td class='column1' >"+rate+"</td><td class='column2'>"+exchange.trade[side][rate]+"</td><td class='column3'>"+exchange.trade[side][rate]*parseFloat(rate)+"</td><td class='column4'>"+exchange.trade[side][rate]+"</td></tr>" ;
+        $('#'+side+'Table tbody.data').append(row);
+    }
+
+    updateTradeSum(side);
+    //$('#' + side + 'Table tbody').after("<tbody class='loadMore'><tr class='" + side + "Tr' id=" + rate + side + "><td>load more</td></tr></tbody>");
+}
+
+function updateTradeTable(side, rate) {
+    rate = rate.toString();
+    let row = "<td class='column1'>" + rate + "</td><td class='column2'>" + exchange.trade[side][rate] + "</td><td class='column3'>" + exchange.trade[side][rate] * parseFloat(rate) + "</td><td class='column4'>" + exchange.trade[side][rate] + "</td>"
+    if ($('#' + rate.replace('.', '\\.') + side).html() === undefined) {
+        $('#' + side + 'Table tbody.data tr:last').after("<tr class='" + side + "Tr' id=" + rate.toString() + side + ">" + row + '</tr>');
+        if (side === 'asks')
+            sortTable(document.getElementById(side + 'Table'), 0, 1);
+        else
+            sortTable(document.getElementById(side + 'Table'), 0, 0);
+    } else
+    $('#' + rate.replace('.', '\\.') + side).html(row);
+    updateTradeSum(side);
+    $('#' + rate.replace('.', '\\.') + side).addClass('color');
+    setTimeout(() => {
+        $('#' + rate.replace('.', '\\.') + side).removeClass('color');
+    }, 500);
+
+
+}
+
+function removeTradeRow(side , rate ){
+    $('#' + rate.replace('.','\\.') + side).remove()
+}
+
+function updateTradeSum(side){
+    let sum = 0;
+    $('.'+side+'Tr').each(function(){
+        sum += parseFloat( $(this).children('.column3').html() )
+        $(this).children('.column4').html(sum);
+    });
+}
 
 //get trade history from poloniex api
-function getHistoryData(pair){
-    return new Promise(resolve=>{
-        let starttime = ( Date.now() / 1000 ) - 86400*30
+function getHistoryData(pair) {
+    return new Promise(resolve => {
+        let starttime = (Date.now() / 1000) - 86400 * 30
         let datas = []
         try {
-            $.getJSON('https://poloniex.com/public?command=returnTradeHistory&currencyPair={0}&start={1}'.format(pair,starttime),data=>{
-                for ( let trade of data ){
-                    trade.date = new Date(trade.date).getTime()/1000;
+            $.getJSON('https://poloniex.com/public?command=returnTradeHistory&currencyPair={0}&start={1}'.format(pair, starttime), data => {
+                for (let trade of data) {
+                    trade.date = new Date(trade.date).getTime() / 1000;
                     datas.push(trade)
                 }
-                datas.sort((x,y)=>{
+                datas.sort((x, y) => {
                     return x.date - y.date
                 })
-            resolve(datas); // Orginal Data from api
-        });
-        } catch (err){
+                resolve(datas); // Orginal Data from api
+            });
+        } catch (err) {
             console.log(err)
             alert('wait');
-            setTimeout(()=>{
-                $.getJSON('https://poloniex.com/public?command=returnTradeHistory&currencyPair={0}&start={1}'.format(pair,starttime),data=>{
-                    for ( let trade of data ){
-                        trade.date = new Date(trade.date).getTime()/1000;
+            setTimeout(() => {
+                $.getJSON('https://poloniex.com/public?command=returnTradeHistory&currencyPair={0}&start={1}'.format(pair, starttime), data => {
+                    for (let trade of data) {
+                        trade.date = new Date(trade.date).getTime() / 1000;
                         datas.push(trade)
                     }
-                    datas.sort((x,y)=>{
+                    datas.sort((x, y) => {
                         return x.date - y.date
                     })
-            resolve(datas); // Orginal Data from api
-        });
+                    resolve(datas); // Orginal Data from api
+                });
 
-            } , 500 );
+            }, 500);
         }
     });
 }
 
 
 // format orginal data to Echarts candlestick data
-function historyDataToKline(datas){
- startTime = datas[0].date;
- start = timestampToDate(startTime);
- open = datas[0].rate;
- close = open;
- high = open;
- low = open;
- historydata = [];
- for (let trade of datas){
+function historyDataToKline(datas) {
+    startTime = datas[0].date;
+    start = timestampToDate(startTime);
+    open = datas[0].rate;
+    close = open;
+    high = open;
+    low = open;
+    historydata = [];
+    for (let trade of datas) {
 
-    if ( trade.date > startTime+timeSpan ) {
-        historydata.push([start,open,close,low,high])
-        startTime = trade.date;
-        start = timestampToDate(startTime);
-        open = trade.rate;
-        high = open;
-        low = open;
+        if (trade.date > startTime + timeSpan) {
+            historydata.push([start, open, close, low, high])
+            startTime = trade.date;
+            start = timestampToDate(startTime);
+            open = trade.rate;
+            high = open;
+            low = open;
+        }
+
+
+        if (trade.rate > high)
+            high = trade.rate;
+        else if (trade.rate < low)
+            low = trade.rate;
+        close = trade.rate;
+
     }
 
 
-    if ( trade.rate > high )
-        high = trade.rate;
-    else if ( trade.rate < low )
-        low = trade.rate; 
-    close = trade.rate;
-
-}
-
-
-historydata.push([start,open,close,low,high])
+    historydata.push([start, open, close, low, high])
 
 }
 
@@ -308,19 +387,19 @@ function timestampToDate(timestamp) {
 
         return num;
     }
-    let rDate = new Date(parseInt(timestamp)*1000);
+    let rDate = new Date(parseInt(timestamp) * 1000);
     let date = rDate.getUTCFullYear() + "-" + pad(rDate.getUTCMonth() + 1, 2) + "-" + pad(rDate.getUTCDate(), 2);
-    let time = pad(rDate.getUTCHours(), 2) + ":" + pad(rDate.getMinutes(), 2) ; // + ":" + pad(rDate.getSeconds(), 2);
-    return date +' ' + time ;
+    let time = pad(rDate.getUTCHours(), 2) + ":" + pad(rDate.getMinutes(), 2); // + ":" + pad(rDate.getSeconds(), 2);
+    return date + ' ' + time;
 
 }
 
 // Echart Candlestick Start
 
-function setOption(){
-    option = {
+function setOption() {
+    tickerOption = {
         title: {
-            text:  quote+'_'+base ,
+            text: quote + '_' + base,
             left: 0
         },
         tooltip: {
@@ -341,9 +420,13 @@ function setOption(){
             type: 'category',
             data: data0.categoryData,
             scale: true,
-            boundaryGap : false,
-            axisLine: {onZero: false},
-            splitLine: {show: false},
+            boundaryGap: false,
+            axisLine: {
+                onZero: false
+            },
+            splitLine: {
+                show: false
+            },
             splitNumber: 20,
             min: 'dataMin',
             max: 'dataMax'
@@ -354,8 +437,7 @@ function setOption(){
                 show: true
             }
         },
-        dataZoom: [
-        {
+        dataZoom: [{
             type: 'inside',
             start: 50,
             end: 100
@@ -368,8 +450,7 @@ function setOption(){
             end: 100
         }
         ],
-        series: [
-        {
+        series: [{
             name: 'Kline',
             type: 'candlestick',
             data: data0.values,
@@ -384,18 +465,19 @@ function setOption(){
             markPoint: {
                 label: {
                     normal: {
-                        formatter: function (param) {
+                        formatter: function(param) {
                             return param != null ? param.value.toFixed(3) : '';
                         }
                     }
                 },
-                data: [
-                {
+                data: [{
                     name: 'XX标点',
                     coord: ['2013/5/31', 2300],
                     value: 2300,
                     itemStyle: {
-                        normal: {color: 'rgb(41,60,85)'}
+                        normal: {
+                            color: 'rgb(41,60,85)'
+                        }
                     }
                 },
                 {
@@ -415,7 +497,7 @@ function setOption(){
                 }
                 ],
                 tooltip: {
-                    formatter: function (param) {
+                    formatter: function(param) {
                         return param.name + '<br>' + (param.data.coord || '');
                     }
                 }
@@ -423,16 +505,19 @@ function setOption(){
             markLine: {
                 symbol: ['none', 'none'],
                 data: [
-                [
-                {
+                [{
                     name: 'from lowest to highest',
                     type: 'min',
                     valueDim: 'lowest',
                     symbol: 'circle',
                     symbolSize: 10,
                     label: {
-                        normal: {show: false},
-                        emphasis: {show: false}
+                        normal: {
+                            show: false
+                        },
+                        emphasis: {
+                            show: false
+                        }
                     }
                 },
                 {
@@ -441,8 +526,12 @@ function setOption(){
                     symbol: 'circle',
                     symbolSize: 10,
                     label: {
-                        normal: {show: false},
-                        emphasis: {show: false}
+                        normal: {
+                            show: false
+                        },
+                        emphasis: {
+                            show: false
+                        }
                     }
                 }
                 ],
@@ -465,7 +554,9 @@ function setOption(){
             data: calculateMA(5),
             smooth: true,
             lineStyle: {
-                normal: {opacity: 0.5}
+                normal: {
+                    opacity: 0.5
+                }
             }
         },
         {
@@ -474,7 +565,9 @@ function setOption(){
             data: calculateMA(10),
             smooth: true,
             lineStyle: {
-                normal: {opacity: 0.5}
+                normal: {
+                    opacity: 0.5
+                }
             }
         },
         {
@@ -483,7 +576,9 @@ function setOption(){
             data: calculateMA(20),
             smooth: true,
             lineStyle: {
-                normal: {opacity: 0.5}
+                normal: {
+                    opacity: 0.5
+                }
             }
         },
         {
@@ -492,7 +587,9 @@ function setOption(){
             data: calculateMA(30),
             smooth: true,
             lineStyle: {
-                normal: {opacity: 0.5}
+                normal: {
+                    opacity: 0.5
+                }
             }
         },
 
@@ -503,13 +600,13 @@ function setOption(){
 
 DrawChart()
 
-window.setInterval(function(){
-  myChart.setOption(option, true);
+window.setInterval(function() {
+    myChart.setOption(tickerOption, true);
 }, 30000);
 var dom = document.getElementById("container");
 var myChart = echarts.init(dom);
 var app = {};
-option = null;
+tickerOption = null;
 var upColor = '#ec0000';
 var upBorderColor = '#8A0000';
 var downColor = '#00da3c';
@@ -534,7 +631,7 @@ function splitData(rawData) {
 
 function calculateMA(day) {
     var result = [];
-    let dayCount = (86400/timeSpan)*day;
+    let dayCount = (86400 / timeSpan) * day;
     for (var i = 0, len = data0.values.length; i < len; i++) {
         if (i < dayCount) {
             result.push('-');
@@ -550,19 +647,20 @@ function calculateMA(day) {
     return result;
 }
 
-function DrawChart(){
-    $('#container').block({  message: '<img src="http://www.broadwaybalancesamerica.com/images/ajax-loader.gif" />',
+function DrawChart() {
+    $('#container').block({
+        message: '<img src="http://www.broadwaybalancesamerica.com/images/ajax-loader.gif" />',
         css: {
-            border:     'none',
-            backgroundColor:'transparent'
+            border: 'none',
+            backgroundColor: 'transparent'
         }
-    });  ;
-    getHistoryData( quote+'_'+base ).then(historyDataToKline).then(()=>{
-        data0= splitData(historydata);
+    });
+    getHistoryData(quote + '_' + base).then(historyDataToKline).then(() => {
+        data0 = splitData(historydata);
         setOption();
-        if (option && typeof option === "object") {
-            myChart.setOption(option, true);
-            $('#container').unblock();  
+        if (tickerOption && typeof tickerOption === "object") {
+            myChart.setOption(tickerOption, true);
+            $('#container').unblock();
         }
     });
 }
@@ -570,30 +668,50 @@ function DrawChart(){
 
 
 
-//reDraw Chart When tr been click
-$('#TickerTable').on('click','.tickTr',(e)=>{
-    let target = e.target.tagName.toLowerCase() === 'td'? $(e.target).parent(): $(e.target) ;
-    base = target.attr('id').replace('tickTable_'+quote+'_','');
+//reDraw Chart and re Write asks bids table When tr been click
+$('#tickerTable').on('click', '.tickTr', (e) => {
+    let target = e.target.tagName.toLowerCase() === 'td' ? $(e.target).parent() : $(e.target);
+    base = target.attr('id').replace('tickTable_' + quote + '_', '');
+    exchange.webSockets_unsubscribe(exchange.marketChannel);
+    $('#asksTable tbody.data').html('');
+    $('#bidsTable tbody.data').html('');
+    exchange.webSockets_subscribe(quote+'_'+base);
     DrawChart();
 });
 
 
 //reDraw Chart with different timespan
-$('.btn-timespan').on('click',(e)=>{
-    timeSpan = parseInt($(e.target).attr('timeSpan')) ;
+$('.btn-timespan').on('click', e => {
+    timeSpan = parseInt($(e.target).attr('timeSpan'));
     DrawChart()
 });
 
 
 
 //re Write Tick Table With different Quote
-$('.btn-quote').on('click',(e)=>{
+$('.btn-quote').on('click', e => {
     $(e.target).siblings('.btn-choose').removeClass('btn-choose');
     $(e.target).addClass('btn-choose');
-    $('#TickerTable tbody').html('');
+    $('#tickerTable tbody').html('');
     quote = $(e.target).html();
     writeTickerTable(null)
 });
+
+//load 100 more
+$('tbody.loadMore').on('click' , e=> {
+    tradeDisplayLimit += 100 ;
+    $('.traderTable').block({
+        message: '<img src="http://www.broadwaybalancesamerica.com/images/ajax-loader.gif" />',
+        css: {
+            border: 'none',
+            backgroundColor: 'transparent'
+        }
+    });
+    setTimeout(()=>$('.traderTable').unblock(),1000);
+    writeTradeTable('asks');
+    writeTradeTable('bids');
+});
+
 
 /*Table Sortable Start*/
 function sortTable(table, col, reverse) {
@@ -601,52 +719,191 @@ function sortTable(table, col, reverse) {
         tr = Array.prototype.slice.call(tb.rows, 0), // put rows into array
         i;
         reverse = -((+reverse) || -1);
-
-    tr = tr.sort(function (a, b) { // sort rows
-        let reval ;
-        try{
-            if ( isNaN( parseFloat(a.cells[col].textContent.trim())))
-                throw 'This is String' ;
-            reval =  floatCompare(parseFloat( a.cells[col].textContent.trim()) // using `.textContent.trim()` for test cpmpare floats
-                ,parseFloat(b.cells[col].textContent.trim())
+    tr = tr.sort(function(a, b) { // sort rows
+        let reval;
+        try {
+            if (isNaN(parseFloat(a.cells[col].textContent.trim())))
+                throw 'This is String';
+            reval = floatCompare(parseFloat(a.cells[col].textContent.trim()) // using `.textContent.trim()` for test cpmpare floats
+                , parseFloat(b.cells[col].textContent.trim())
                 );
-        }catch(err){
+        } catch (err) {
             reval = a.cells[col].textContent.trim() // using `.textContent.trim()` for test
             .localeCompare(b.cells[col].textContent.trim())
 
         }
         return reverse // `-1 *` if want opposite order
-        * reval ;
+        *
+        reval;
     });
-    for(i = 0; i < tr.length; ++i) tb.appendChild(tr[i]); // append each row in order
+    for (i = 0; i < tr.length; ++i) tb.appendChild(tr[i]); // append each row in order
 }
 
-function floatCompare(a,b){
-    if ( a === b )
+function floatCompare(a, b) {
+    if (a === b)
         return 0
     if (a < b)
         return 1
-    else if ( a > b )
+    else if (a > b)
         return -1
 }
 
 function makeSortable(table) {
-    var th = table.tHead, i;
+    var th = table.tHead,
+    i;
     th && (th = th.rows[0]) && (th = th.cells);
     if (th) i = th.length;
     else return; // if no `<thead>` then do nothing
-    while (--i >= 0) (function (i) {
+    while (--i >= 0)(function(i) {
         var dir = 1;
-        th[i].addEventListener('click', function () {sortTable(table, i, (dir = 1 - dir))});
+        th[i].addEventListener('click', function() {
+            sortTable(table, i, (dir = 1 - dir))
+        });
     }(i));
 }
 
 function makeAllSortable(parent) {
     parent = parent || document.body;
-    var t = parent.getElementsByTagName('table'), i = t.length;
+    var t = parent.getElementsByTagName('table'),
+    i = t.length;
     while (--i >= 0) makeSortable(t[i]);
 }
 
-window.onload = function () {makeAllSortable();};
+window.onload = function() {
+    makeAllSortable();
+};
 
 /*Table Sortable End*/
+
+
+
+
+/*Trader Chart Start */
+function DrawTrader(){
+    var tdom = document.getElementById("tradeChart");
+    var tmyChart = echarts.init(tdom);
+    toption = null;
+    var base = +new Date(1968, 9, 3);
+    var oneDay = 24 * 3600 * 1000;
+    var date = [];
+    var data = [Math.random() * 300];
+    var data1 = [Math.random() * 300];
+
+
+    for (var i = 1; i < 20000; i++) {
+        var now = new Date(base += oneDay);
+        date.push([now.getFullYear(), now.getMonth() + 1, now.getDate()].join('/'));
+        data.push(Math.round((Math.random() - 0.5) * 20 + data[i - 1]));
+        data1.push(Math.round((Math.random() - 0.5) * 20 + data1[i - 1]));
+    }
+
+    date = data1;
+
+
+
+    toption = {
+        tooltip: {
+            trigger: 'axis',
+            position: function (pt) {
+                return [pt[0], '10%'];
+            }
+        },
+        title: {
+            left: 'center',
+            text: '大数据量面积图',
+        },
+        toolbox: {
+            feature: {
+                dataZoom: {
+                    yAxisIndex: 'none'
+                },
+                restore: {},
+                saveAsImage: {}
+            }
+        },
+        xAxis: {
+            type: 'category',
+            boundaryGap: false,
+            data: date
+        },
+        yAxis: {
+            type: 'value',
+            boundaryGap: [0, '100%']
+        },
+        dataZoom: [{
+            type: 'inside',
+            start: 0,
+            end: 10
+        }, {
+            start: 0,
+            end: 10,
+            handleIcon: 'M10.7,11.9v-1.3H9.3v1.3c-4.9,0.3-8.8,4.4-8.8,9.4c0,5,3.9,9.1,8.8,9.4v1.3h1.3v-1.3c4.9-0.3,8.8-4.4,8.8-9.4C19.5,16.3,15.6,12.2,10.7,11.9z M13.3,24.4H6.7V23h6.6V24.4z M13.3,19.6H6.7v-1.4h6.6V19.6z',
+            handleSize: '80%',
+            handleStyle: {
+                color: '#fff',
+                shadowBlur: 3,
+                shadowColor: 'rgba(0, 0, 0, 0.6)',
+                shadowOffsetX: 2,
+                shadowOffsetY: 2
+            }
+        }],
+        series: [
+        {
+            name:'模拟数据',
+            type:'line',
+            smooth:true,
+            symbol: 'none',
+            sampling: 'average',
+            itemStyle: {
+                normal: {
+                    color: 'red'
+                }
+            },
+            areaStyle: {
+                normal: {
+                    color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{
+                        offset: 0,
+                        color: 'green'
+                    }, {
+                        offset: 1,
+                        color: 'green'
+                    }])
+                }
+            },
+            data: data
+        },{
+            name:'模拟数据',
+            type:'line',
+            smooth:true,
+            symbol: 'none',
+            sampling: 'average',
+            itemStyle: {
+                normal: {
+                    color: 'blue'
+                }
+            },
+            areaStyle: {
+                normal: {
+                    color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{
+                        offset: 0,
+                        color: 'yellow'
+                    }, {
+                        offset: 1,
+                        color: 'yellow'
+                    }])
+                }
+            },
+            data: data1
+        }
+        ]
+    };
+    ;
+    if (toption && typeof toption === "object") {
+        tmyChart.setOption(toption, true);
+    }
+
+
+
+}
+
+DrawTrader();
