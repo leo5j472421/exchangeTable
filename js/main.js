@@ -11,7 +11,7 @@ String.prototype.format = function() {
 
 // ticker Chart Loading
 $('#container').block({
-    message: '<img src="http://www.broadwaybalancesamerica.com/images/ajax-loader.gif" />',
+    message: '<img src="img/load.gif" height="100" width="100" />',
     css: {
         border: 'none',
         backgroundColor: 'transparent'
@@ -54,8 +54,8 @@ poloniex = function() {
             self.tick[cp].price = parseFloat(data[1]);
             self.tick[cp].high = parseFloat(data[8]);
             self.tick[cp].low = parseFloat(data[9]);
-            self.tick[cp].volume = parseFloat(data[5]);
-            self.tick[cp].change = parseFloat(data[4]) * 100;
+            self.tick[cp].volume = parseFloat(data[5]).toFixed(3);
+            self.tick[cp].change = (parseFloat(data[4]) * 100).toFixed(3);
             if (cp.includes(quote + '_'))
                 updateTickerTable(cp, change);
 
@@ -98,8 +98,8 @@ poloniex = function() {
                     cps[d] = data[d]['id'];
                     self.tick[d] = {
                         'price': parseFloat(data[d].last),
-                        'volume': parseFloat(data[d].baseVolume),
-                        'change': parseFloat(data[d].percentChange) * 100,
+                        'volume': parseFloat(data[d].baseVolume).toFixed(3),
+                        'change': (parseFloat(data[d].percentChange) * 100).toFixed(3),
                         'high': parseFloat(data[d].high24hr),
                         'low': parseFloat(data[d].low24hr)
                     };
@@ -162,7 +162,7 @@ poloniex = function() {
             };
             conn.send(JSON.stringify(params));
             console.log('Subscribe Channel {0}'.format(channel));
-            return 'USDT_ETH'
+            return quote+'_'+base
         }
     }
 
@@ -193,7 +193,7 @@ poloniex = function() {
                     $('#container').unblock();
                 });
             }).then(() => {
-                sortTable(document.getElementById('tickerTable'), 1, 0); //SortByPrice
+                sortTable($('#tickerTable').get(0), 1, 0); //SortByPrice
             });
         };
 
@@ -212,7 +212,7 @@ poloniex = function() {
             data = JSON.parse(e.data);
             channel = data[0];
             var cp =
-                ids[channel];
+            ids[channel];
             if (channel === 1002) {
                 if (data[1] === 1) return; // subscript 1002 success
                 tickEvent(data[2]);
@@ -305,11 +305,11 @@ function updateTradeTable(side, rate) {
     if ($('#' + rate.replace('.', '\\.') + side).html() === undefined) {
         $('#' + side + 'Table tbody.data tr:last').after("<tr class='" + side + "Tr' id=" + rate.toString() + side + ">" + row + '</tr>');
         if (side === 'asks')
-            sortTable(document.getElementById(side + 'Table'), 0, 1);
+            sortTable($('#'+side + 'Table').get(0), 0, 1);
         else
-            sortTable(document.getElementById(side + 'Table'), 0, 0);
+            sortTable($('#'+side + 'Table').get(0), 0, 0);
     } else
-        $('#' + rate.replace('.', '\\.') + side).html(row);
+    $('#' + rate.replace('.', '\\.') + side).html(row);
     updateTradeSum(side);
     $('#' + rate.replace('.', '\\.') + side).addClass('color');
     setTimeout(() => {
@@ -515,160 +515,160 @@ function drawTicker() {
                     }
                 },
                 dataZoom: [{
-                        type: 'inside',
-                        start: 50,
-                        end: 100
-                    },
-                    {
-                        show: true,
-                        type: 'slider',
-                        y: '90%',
-                        start: 50,
-                        end: 100
-                    }
+                    type: 'inside',
+                    start: 50,
+                    end: 100
+                },
+                {
+                    show: true,
+                    type: 'slider',
+                    y: '90%',
+                    start: 50,
+                    end: 100
+                }
                 ],
                 series: [{
-                        name: 'Kline',
-                        type: 'candlestick',
-                        data: data0.values,
-                        itemStyle: {
+                    name: 'Kline',
+                    type: 'candlestick',
+                    data: data0.values,
+                    itemStyle: {
+                        normal: {
+                            color: upColor,
+                            color0: downColor,
+                            borderColor: upBorderColor,
+                            borderColor0: downBorderColor
+                        }
+                    },
+                    markPoint: {
+                        label: {
                             normal: {
-                                color: upColor,
-                                color0: downColor,
-                                borderColor: upBorderColor,
-                                borderColor0: downBorderColor
+                                formatter: function(param) {
+                                    return param != null ? param.value.toFixed(3) : '';
+                                }
                             }
                         },
-                        markPoint: {
+                        data: [{
+                            name: 'XX标点',
+                            coord: ['2013/5/31', 2300],
+                            value: 2300,
+                            itemStyle: {
+                                normal: {
+                                    color: 'rgb(41,60,85)'
+                                }
+                            }
+                        },
+                        {
+                            name: 'highest value',
+                            type: 'max',
+                            valueDim: 'highest'
+                        },
+                        {
+                            name: 'lowest value',
+                            type: 'min',
+                            valueDim: 'lowest'
+                        },
+                        {
+                            name: 'average value on close',
+                            type: 'average',
+                            valueDim: 'close'
+                        }
+                        ],
+                        tooltip: {
+                            formatter: function(param) {
+                                return param.name + '<br>' + (param.data.coord || '');
+                            }
+                        }
+                    },
+                    markLine: {
+                        symbol: ['none', 'none'],
+                        data: [
+                        [{
+                            name: 'from lowest to highest',
+                            type: 'min',
+                            valueDim: 'lowest',
+                            symbol: 'circle',
+                            symbolSize: 10,
                             label: {
                                 normal: {
-                                    formatter: function(param) {
-                                        return param != null ? param.value.toFixed(3) : '';
-                                    }
-                                }
-                            },
-                            data: [{
-                                    name: 'XX标点',
-                                    coord: ['2013/5/31', 2300],
-                                    value: 2300,
-                                    itemStyle: {
-                                        normal: {
-                                            color: 'rgb(41,60,85)'
-                                        }
-                                    }
+                                    show: false
                                 },
-                                {
-                                    name: 'highest value',
-                                    type: 'max',
-                                    valueDim: 'highest'
-                                },
-                                {
-                                    name: 'lowest value',
-                                    type: 'min',
-                                    valueDim: 'lowest'
-                                },
-                                {
-                                    name: 'average value on close',
-                                    type: 'average',
-                                    valueDim: 'close'
-                                }
-                            ],
-                            tooltip: {
-                                formatter: function(param) {
-                                    return param.name + '<br>' + (param.data.coord || '');
+                                emphasis: {
+                                    show: false
                                 }
                             }
                         },
-                        markLine: {
-                            symbol: ['none', 'none'],
-                            data: [
-                                [{
-                                        name: 'from lowest to highest',
-                                        type: 'min',
-                                        valueDim: 'lowest',
-                                        symbol: 'circle',
-                                        symbolSize: 10,
-                                        label: {
-                                            normal: {
-                                                show: false
-                                            },
-                                            emphasis: {
-                                                show: false
-                                            }
-                                        }
-                                    },
-                                    {
-                                        type: 'max',
-                                        valueDim: 'highest',
-                                        symbol: 'circle',
-                                        symbolSize: 10,
-                                        label: {
-                                            normal: {
-                                                show: false
-                                            },
-                                            emphasis: {
-                                                show: false
-                                            }
-                                        }
-                                    }
-                                ],
-                                {
-                                    name: 'min line on close',
-                                    type: 'min',
-                                    valueDim: 'close'
+                        {
+                            type: 'max',
+                            valueDim: 'highest',
+                            symbol: 'circle',
+                            symbolSize: 10,
+                            label: {
+                                normal: {
+                                    show: false
                                 },
-                                {
-                                    name: 'max line on close',
-                                    type: 'max',
-                                    valueDim: 'close'
+                                emphasis: {
+                                    show: false
                                 }
-                            ]
-                        }
-                    },
-                    {
-                        name: 'MA5',
-                        type: 'line',
-                        data: calculateMA(5),
-                        smooth: true,
-                        lineStyle: {
-                            normal: {
-                                opacity: 0.5
                             }
                         }
-                    },
-                    {
-                        name: 'MA10',
-                        type: 'line',
-                        data: calculateMA(10),
-                        smooth: true,
-                        lineStyle: {
-                            normal: {
-                                opacity: 0.5
-                            }
+                        ],
+                        {
+                            name: 'min line on close',
+                            type: 'min',
+                            valueDim: 'close'
+                        },
+                        {
+                            name: 'max line on close',
+                            type: 'max',
+                            valueDim: 'close'
                         }
-                    },
-                    {
-                        name: 'MA20',
-                        type: 'line',
-                        data: calculateMA(20),
-                        smooth: true,
-                        lineStyle: {
-                            normal: {
-                                opacity: 0.5
-                            }
+                        ]
+                    }
+                },
+                {
+                    name: 'MA5',
+                    type: 'line',
+                    data: calculateMA(5),
+                    smooth: true,
+                    lineStyle: {
+                        normal: {
+                            opacity: 0.5
                         }
-                    },
-                    {
-                        name: 'MA30',
-                        type: 'line',
-                        data: calculateMA(30),
-                        smooth: true,
-                        lineStyle: {
-                            normal: {
-                                opacity: 0.5
-                            }
+                    }
+                },
+                {
+                    name: 'MA10',
+                    type: 'line',
+                    data: calculateMA(10),
+                    smooth: true,
+                    lineStyle: {
+                        normal: {
+                            opacity: 0.5
                         }
-                    },
+                    }
+                },
+                {
+                    name: 'MA20',
+                    type: 'line',
+                    data: calculateMA(20),
+                    smooth: true,
+                    lineStyle: {
+                        normal: {
+                            opacity: 0.5
+                        }
+                    }
+                },
+                {
+                    name: 'MA30',
+                    type: 'line',
+                    data: calculateMA(30),
+                    smooth: true,
+                    lineStyle: {
+                        normal: {
+                            opacity: 0.5
+                        }
+                    }
+                },
 
                 ]
             };
@@ -679,7 +679,7 @@ function drawTicker() {
 
         });
 
-    })
+})
 
 }
 // Echart Candlestick End
@@ -693,9 +693,12 @@ $('#tickerTable').on('click', '.tickTr', (e) => {
     exchange.webSockets_unsubscribe(exchange.marketChannel);
     $('#asksTable tbody.data').html('');
     $('#bidsTable tbody.data').html('');
+    $('.traderTable thead tr th.column2').html(base);
+    $('.traderTable thead tr th.column3').html(quote);
+    $('.traderTable thead tr th.column4').html('Sum({0})'.format(quote));
     exchange.webSockets_subscribe(quote + '_' + base);
     $('#container').block({
-        message: '<img src="http://www.broadwaybalancesamerica.com/images/ajax-loader.gif" />',
+        message: '<img src="img/loading.gif" />',
         css: {
             border: 'none',
             backgroundColor: 'transparent'
@@ -754,7 +757,7 @@ function sortTable(table, col, reverse) {
     var tb = table.tBodies[0], // use `<tbody>` to ignore `<thead>` and `<tfoot>` rows
         tr = Array.prototype.slice.call(tb.rows, 0), // put rows into array
         i;
-    reverse = -((+reverse) || -1);
+        reverse = -((+reverse) || -1);
     tr = tr.sort(function(a, b) { // sort rows
         let reval;
         try {
@@ -762,22 +765,22 @@ function sortTable(table, col, reverse) {
                 throw 'This is String';
             reval = floatCompare(parseFloat(a.cells[col].textContent.trim()) // using `.textContent.trim()` for test cpmpare floats
                 , parseFloat(b.cells[col].textContent.trim())
-            );
+                );
         } catch (err) {
             reval = a.cells[col].textContent.trim() // using `.textContent.trim()` for test
-                .localeCompare(b.cells[col].textContent.trim())
+            .localeCompare(b.cells[col].textContent.trim())
 
         }
         return reverse // `-1 *` if want opposite order
-            *
-            reval;
+        *
+        reval;
     });
     for (i = 0; i < tr.length; ++i) tb.appendChild(tr[i]); // append each row in order
 }
 
 function makeSortable(table) {
     var th = table.tHead,
-        i;
+    i;
     th && (th = th.rows[0]) && (th = th.cells);
     if (th) i = th.length;
     else return; // if no `<thead>` then do nothing
@@ -792,7 +795,7 @@ function makeSortable(table) {
 function makeAllSortable(parent) {
     parent = parent || document.body;
     var t = parent.getElementsByTagName('table'),
-        i = t.length;
+    i = t.length;
     while (--i >= 0) makeSortable(t[i]);
 }
 
@@ -842,18 +845,14 @@ function drawTrader() {
     let rates = [];
     let asks = [];
     let bids = [];
-    let start = arr[1].length;
-    let end = arr[0].length;
-    let all = start + end;
-    start = ((start * 0.5) / all) * 100
-    end = ((start + end * 0.5) / all) * 100
-
+    let all = arr[0].length + arr[1].length;
+    let start = ((arr[1].length * 0.5) / all) * 100
+    let end = ((arr[1].length + arr[0].length * 0.3) / all) * 100
     for (let trade of arr[1]) {
         rates.push(trade[0]);
         bids.push(trade[1]);
     }
-    for (let index in rates)
-        asks.push(0);
+    rates.forEach(()=>asks.push(0));
     for (let trade of arr[0]) {
         rates.push(trade[0]);
         asks.push(trade[1]);
