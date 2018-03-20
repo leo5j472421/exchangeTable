@@ -9,6 +9,15 @@ String.prototype.format = function() {
     });
 };
 
+// ticker Chart Loading
+$('#container').block({
+    message: '<img src="http://www.broadwaybalancesamerica.com/images/ajax-loader.gif" />',
+    css: {
+        border: 'none',
+        backgroundColor: 'transparent'
+    }
+});
+
 var historydata = [];
 var start;
 var startTime;
@@ -22,18 +31,21 @@ var timeSpan = 60;
 var base = 'ETH';
 var quote = 'USDT';
 var tradeDisplayLimit = 50;
+
+
 poloniex = function() {
-    var self = this;
+    let self = this;
     this.tick = {};
     this.trade = {
         'asks': {},
         'bids': {}
     };
-    this.ids = {};
-    this.cps = {};
-    this.marketChannel ;
+    let ids = {};
+    let cps = {};
+    this.marketChannel;
+
     function tickEvent(data) {
-        cp = self.ids[data[0]];
+        cp = ids[data[0]];
         let change = false
 
         try {
@@ -44,7 +56,7 @@ poloniex = function() {
             self.tick[cp].low = parseFloat(data[9]);
             self.tick[cp].volume = parseFloat(data[5]);
             self.tick[cp].change = parseFloat(data[4]) * 100;
-            if (cp.indexOf(quote + '_') !== -1)
+            if (cp.includes(quote + '_'))
                 updateTickerTable(cp, change);
 
 
@@ -82,8 +94,8 @@ poloniex = function() {
             $.getJSON('https://poloniex.com/public?command=returnTicker', data => {
                 let row;
                 for (let d in data) {
-                    self.ids[data[d]['id']] = d;
-                    self.cps[d] = data[d]['id'];
+                    ids[data[d]['id']] = d;
+                    cps[d] = data[d]['id'];
                     self.tick[d] = {
                         'price': parseFloat(data[d].last),
                         'volume': parseFloat(data[d].baseVolume),
@@ -104,41 +116,44 @@ poloniex = function() {
             let data = datas[i];
             if (data[0] === 'o') {
                 let side = data[1] ? 'bids' : 'asks';
-                let rate = parseFloat(data[2]).toString() ;
+                let rate = parseFloat(data[2]).toString();
                 if (data[3] === '0.00000000') {
                     delete self.trade[side][rate];
-                    removeTradeRow(side,rate);
-                } else 
-                {
+                    removeTradeRow(side, rate);
+                } else {
                     self.trade[side][rate] = parseFloat(data[3]);
-                    updateTradeTable( side,rate);
+                    updateTradeTable(side, rate);
                 }
 
             }
         }
 
-        
+
         //n = Object.keys(self.trade.asks).map(parseFloat);
         //console.log(Math.min(...n));
     }
 
     function tradeInit(data, cp) {
-        for (let a in [0, 1]) {
-            for (let rate in data[a]) {
-                // 0 asks 1 bids
-                if (a == 1) // bids
-                    self.trade.bids[parseFloat(rate).toString()] = parseFloat(data[a][rate]);
-                else self.trade.asks[parseFloat(rate).toString()] = parseFloat(data[a][rate]);
+        return new Promise(resolve => {
+            for (let a in [0, 1]) {
+                for (let rate in data[a]) {
+                    // 0 asks 1 bids
+                    if (a == 1) // bids
+                        self.trade.bids[parseFloat(rate).toString()] = parseFloat(data[a][rate]);
+                    else self.trade.asks[parseFloat(rate).toString()] = parseFloat(data[a][rate]);
+                }
             }
-        }
 
 
-        writeTradeTable('asks');
-        writeTradeTable('bids');
+            writeTradeTable('asks');
+            writeTradeTable('bids');
+            resolve();
+        });
+
 
     }
 
-    this.webSockets_subscribe = channel=> {
+    this.webSockets_subscribe = channel => {
         let conn = self.conn
         if (conn.readyState === 1) {
             var params = {
@@ -151,12 +166,15 @@ poloniex = function() {
         }
     }
 
-    this.webSockets_unsubscribe = channel=>{
-        let conn = self.conn ;
-        if (conn.readyState == 1 && channel > 0){
+    this.webSockets_unsubscribe = channel => {
+        let conn = self.conn;
+        if (conn.readyState == 1 && channel > 0) {
             if (channel == self.marketChannel)
                 self.marketChannel = 0;
-            conn.send(JSON.stringify({command: "unsubscribe", channel: channel}));
+            conn.send(JSON.stringify({
+                command: "unsubscribe",
+                channel: channel
+            }));
             console.log('Unsubscribe Channel {0}'.format(channel));
             if ('subscriptions' in conn)
                 delete conn.subscriptions[channel];
@@ -171,6 +189,10 @@ poloniex = function() {
 
             self.conn = e.target;
             tickInit().then(writeTickerTable).then(self.webSockets_subscribe).then(self.webSockets_subscribe).then(() => {
+                drawTicker().then(() => {
+                    $('#container').unblock();
+                });
+            }).then(() => {
                 sortTable(document.getElementById('tickerTable'), 1, 0); //SortByPrice
             });
         };
@@ -189,13 +211,14 @@ poloniex = function() {
         mySocket.onmessage = function(e) {
             data = JSON.parse(e.data);
             channel = data[0];
-            var cp = self.ids[channel];
+            var cp =
+                ids[channel];
             if (channel === 1002) {
                 if (data[1] === 1) return; // subscript 1002 success
                 tickEvent(data[2]);
             } else if (channel === 1010) {}
             // heartbeat
-            else if (channel === self.marketChannel ) {
+            else if (channel === self.marketChannel) {
                 tradeEvent(data[2], cp);
                 // Trade Event
             } else {
@@ -204,10 +227,10 @@ poloniex = function() {
                     'bids': {}
                 }
 
-                if( data[1] === 0 ); // unsubscript
+                if (data[1] === 0); // unsubscript
                 else if (data[2][0][0] === 'i') { // TradeInit
-                    self.marketChannel=channel;
-                    tradeInit(data[2][0][1].orderBook, cp);
+                    self.marketChannel = channel;
+                    tradeInit(data[2][0][1].orderBook, cp).then(drawTrader);
                 }
                 // Trade init
             } // end if
@@ -222,13 +245,13 @@ poloniex = function() {
 };
 
 const exchange = new poloniex();
-exchange.start();
+exchange.start(); // websocket Start
 
 
 function writeTickerTable(e) {
     let row;
     for (let pair in exchange.tick) {
-        if (pair.indexOf(quote + '_') !== -1) {
+        if (pair.includes(quote + '_')) {
             coin = pair.replace(quote + '_', '');
             row = "<tr class='tickTr' id=tickTable_" + pair + "><td class='column1' >" + coin + "</td><td class='column2'>" + exchange.tick[pair].price + "</td><td class='column3'>" + exchange.tick[pair].volume + "</td><td class='column4'>" + exchange.tick[pair].change + "</td></tr>"
             $('#tickerTable tbody').append(row);
@@ -255,17 +278,21 @@ function updateTickerTable(pair, c) {
 function writeTradeTable(side) {
     let row;
     let rates;
-    let rate ;
-    $('#'+side+'Table tbody.data').html('');
-    if ( side === 'asks' )
-        rates = Object.keys(exchange.trade.asks).map(parseFloat).sort((x,y)=>{return x - y });
+    let rate;
+    $('#' + side + 'Table tbody.data').html('');
+    if (side === 'asks')
+        rates = Object.keys(exchange.trade.asks).map(parseFloat).sort((x, y) => {
+            return x - y
+        });
     else
-        rates = Object.keys(exchange.trade.bids).map(parseFloat).sort((x,y)=>{return y - x });
+        rates = Object.keys(exchange.trade.bids).map(parseFloat).sort((x, y) => {
+            return y - x
+        });
 
-    for(let index = 0; index <= tradeDisplayLimit && index < rates.length ; index ++ ){
+    for (let index = 0; index <= tradeDisplayLimit && index < rates.length; index++) {
         let rate = rates[index].toString();
-        row = "<tr class='"+side+"Tr' id="+rate.toString()+side+"><td class='column1' >"+rate+"</td><td class='column2'>"+exchange.trade[side][rate]+"</td><td class='column3'>"+exchange.trade[side][rate]*parseFloat(rate)+"</td><td class='column4'>"+exchange.trade[side][rate]+"</td></tr>" ;
-        $('#'+side+'Table tbody.data').append(row);
+        row = "<tr class='" + side + "Tr' id=" + rate.toString() + side + "><td class='column1' >" + rate + "</td><td class='column2'>" + exchange.trade[side][rate] + "</td><td class='column3'>" + exchange.trade[side][rate] * parseFloat(rate) + "</td><td class='column4'>" + exchange.trade[side][rate] + "</td></tr>";
+        $('#' + side + 'Table tbody.data').append(row);
     }
 
     updateTradeSum(side);
@@ -282,7 +309,7 @@ function updateTradeTable(side, rate) {
         else
             sortTable(document.getElementById(side + 'Table'), 0, 0);
     } else
-    $('#' + rate.replace('.', '\\.') + side).html(row);
+        $('#' + rate.replace('.', '\\.') + side).html(row);
     updateTradeSum(side);
     $('#' + rate.replace('.', '\\.') + side).addClass('color');
     setTimeout(() => {
@@ -292,17 +319,19 @@ function updateTradeTable(side, rate) {
 
 }
 
-function removeTradeRow(side , rate ){
-    $('#' + rate.replace('.','\\.') + side).remove()
+function removeTradeRow(side, rate) {
+    $('#' + rate.replace('.', '\\.') + side).remove()
 }
 
-function updateTradeSum(side){
+
+function updateTradeSum(side) {
     let sum = 0;
-    $('.'+side+'Tr').each(function(){
-        sum += parseFloat( $(this).children('.column3').html() )
+    $('.' + side + 'Tr').each(function() {
+        sum += parseFloat($(this).children('.column3').html())
         $(this).children('.column4').html(sum);
     });
 }
+
 
 //get trade history from poloniex api
 function getHistoryData(pair) {
@@ -394,275 +423,264 @@ function timestampToDate(timestamp) {
 
 }
 
-// Echart Candlestick Start
-
-function setOption() {
-    tickerOption = {
-        title: {
-            text: quote + '_' + base,
-            left: 0
-        },
-        tooltip: {
-            trigger: 'axis',
-            axisPointer: {
-                type: 'cross'
-            }
-        },
-        legend: {
-            data: ['Kline', 'MA5', 'MA10', 'MA20', 'MA30']
-        },
-        grid: {
-            left: '10%',
-            right: '10%',
-            bottom: '15%'
-        },
-        xAxis: {
-            type: 'category',
-            data: data0.categoryData,
-            scale: true,
-            boundaryGap: false,
-            axisLine: {
-                onZero: false
-            },
-            splitLine: {
-                show: false
-            },
-            splitNumber: 20,
-            min: 'dataMin',
-            max: 'dataMax'
-        },
-        yAxis: {
-            scale: true,
-            splitArea: {
-                show: true
-            }
-        },
-        dataZoom: [{
-            type: 'inside',
-            start: 50,
-            end: 100
-        },
-        {
-            show: true,
-            type: 'slider',
-            y: '90%',
-            start: 50,
-            end: 100
-        }
-        ],
-        series: [{
-            name: 'Kline',
-            type: 'candlestick',
-            data: data0.values,
-            itemStyle: {
-                normal: {
-                    color: upColor,
-                    color0: downColor,
-                    borderColor: upBorderColor,
-                    borderColor0: downBorderColor
-                }
-            },
-            markPoint: {
-                label: {
-                    normal: {
-                        formatter: function(param) {
-                            return param != null ? param.value.toFixed(3) : '';
-                        }
-                    }
-                },
-                data: [{
-                    name: 'XX标点',
-                    coord: ['2013/5/31', 2300],
-                    value: 2300,
-                    itemStyle: {
-                        normal: {
-                            color: 'rgb(41,60,85)'
-                        }
-                    }
-                },
-                {
-                    name: 'highest value',
-                    type: 'max',
-                    valueDim: 'highest'
-                },
-                {
-                    name: 'lowest value',
-                    type: 'min',
-                    valueDim: 'lowest'
-                },
-                {
-                    name: 'average value on close',
-                    type: 'average',
-                    valueDim: 'close'
-                }
-                ],
-                tooltip: {
-                    formatter: function(param) {
-                        return param.name + '<br>' + (param.data.coord || '');
-                    }
-                }
-            },
-            markLine: {
-                symbol: ['none', 'none'],
-                data: [
-                [{
-                    name: 'from lowest to highest',
-                    type: 'min',
-                    valueDim: 'lowest',
-                    symbol: 'circle',
-                    symbolSize: 10,
-                    label: {
-                        normal: {
-                            show: false
-                        },
-                        emphasis: {
-                            show: false
-                        }
-                    }
-                },
-                {
-                    type: 'max',
-                    valueDim: 'highest',
-                    symbol: 'circle',
-                    symbolSize: 10,
-                    label: {
-                        normal: {
-                            show: false
-                        },
-                        emphasis: {
-                            show: false
-                        }
-                    }
-                }
-                ],
-                {
-                    name: 'min line on close',
-                    type: 'min',
-                    valueDim: 'close'
-                },
-                {
-                    name: 'max line on close',
-                    type: 'max',
-                    valueDim: 'close'
-                }
-                ]
-            }
-        },
-        {
-            name: 'MA5',
-            type: 'line',
-            data: calculateMA(5),
-            smooth: true,
-            lineStyle: {
-                normal: {
-                    opacity: 0.5
-                }
-            }
-        },
-        {
-            name: 'MA10',
-            type: 'line',
-            data: calculateMA(10),
-            smooth: true,
-            lineStyle: {
-                normal: {
-                    opacity: 0.5
-                }
-            }
-        },
-        {
-            name: 'MA20',
-            type: 'line',
-            data: calculateMA(20),
-            smooth: true,
-            lineStyle: {
-                normal: {
-                    opacity: 0.5
-                }
-            }
-        },
-        {
-            name: 'MA30',
-            type: 'line',
-            data: calculateMA(30),
-            smooth: true,
-            lineStyle: {
-                normal: {
-                    opacity: 0.5
-                }
-            }
-        },
-
-        ]
-    };
-
-}
-
-DrawChart()
+// Echart Candlestick Start reDrawTicker every 30 sec
 
 window.setInterval(function() {
-    myChart.setOption(tickerOption, true);
+    drawTicker();
 }, 30000);
-var dom = document.getElementById("container");
-var myChart = echarts.init(dom);
-var app = {};
-tickerOption = null;
-var upColor = '#ec0000';
-var upBorderColor = '#8A0000';
-var downColor = '#00da3c';
-var downBorderColor = '#008F28';
 
 
-// 数据意义：开盘(open)，收盘(close)，最低(lowest)，最高(highest)
 
+function drawTicker() {
+    return new Promise(resolve => {
+        getHistoryData(quote + '_' + base).then(historyDataToKline).then(() => {
+            data0 = splitData(historydata);
+            let dom = document.getElementById("container");
+            let myChart = echarts.init(dom);
+            let app = {};
+            let tickerOption = null;
+            let upColor = '#ec0000';
+            let upBorderColor = '#8A0000';
+            let downColor = '#00da3c';
+            let downBorderColor = '#008F28';
 
-function splitData(rawData) {
-    var categoryData = [];
-    var values = []
-    for (var i = 0; i < rawData.length; i++) {
-        categoryData.push(rawData[i].splice(0, 1)[0]);
-        values.push(rawData[i])
-    }
-    return {
-        categoryData: categoryData,
-        values: values
-    };
-}
+            function splitData(rawData) {
+                var categoryData = [];
+                var values = []
+                for (var i = 0; i < rawData.length; i++) {
+                    categoryData.push(rawData[i].splice(0, 1)[0]);
+                    values.push(rawData[i])
+                }
+                return {
+                    categoryData: categoryData,
+                    values: values
+                };
+            }
 
-function calculateMA(day) {
-    var result = [];
-    let dayCount = (86400 / timeSpan) * day;
-    for (var i = 0, len = data0.values.length; i < len; i++) {
-        if (i < dayCount) {
-            result.push('-');
-            continue;
-        }
-        var sum = 0;
-        for (var j = 0; j < dayCount; j++) {
-            sum += parseFloat(data0.values[i - j][1]);
-        }
+            function calculateMA(day) {
+                var result = [];
+                let dayCount = (86400 / timeSpan) * day;
+                for (var i = 0, len = data0.values.length; i < len; i++) {
+                    if (i < dayCount) {
+                        result.push('-');
+                        continue;
+                    }
+                    var sum = 0;
+                    for (var j = 0; j < dayCount; j++) {
+                        sum += parseFloat(data0.values[i - j][1]);
+                    }
 
-        result.push(sum / dayCount);
-    }
-    return result;
-}
+                    result.push(sum / dayCount);
+                }
+                return result;
+            }
+            tickerOption = {
+                title: {
+                    text: quote + '_' + base,
+                    left: 0
+                },
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: {
+                        type: 'cross'
+                    }
+                },
+                legend: {
+                    data: ['Kline', 'MA5', 'MA10', 'MA20', 'MA30']
+                },
+                grid: {
+                    left: '10%',
+                    right: '10%',
+                    bottom: '15%'
+                },
+                xAxis: {
+                    type: 'category',
+                    data: data0.categoryData,
+                    scale: true,
+                    boundaryGap: false,
+                    axisLine: {
+                        onZero: false
+                    },
+                    splitLine: {
+                        show: false
+                    },
+                    splitNumber: 20,
+                    min: 'dataMin',
+                    max: 'dataMax'
+                },
+                yAxis: {
+                    scale: true,
+                    splitArea: {
+                        show: true
+                    }
+                },
+                dataZoom: [{
+                        type: 'inside',
+                        start: 50,
+                        end: 100
+                    },
+                    {
+                        show: true,
+                        type: 'slider',
+                        y: '90%',
+                        start: 50,
+                        end: 100
+                    }
+                ],
+                series: [{
+                        name: 'Kline',
+                        type: 'candlestick',
+                        data: data0.values,
+                        itemStyle: {
+                            normal: {
+                                color: upColor,
+                                color0: downColor,
+                                borderColor: upBorderColor,
+                                borderColor0: downBorderColor
+                            }
+                        },
+                        markPoint: {
+                            label: {
+                                normal: {
+                                    formatter: function(param) {
+                                        return param != null ? param.value.toFixed(3) : '';
+                                    }
+                                }
+                            },
+                            data: [{
+                                    name: 'XX标点',
+                                    coord: ['2013/5/31', 2300],
+                                    value: 2300,
+                                    itemStyle: {
+                                        normal: {
+                                            color: 'rgb(41,60,85)'
+                                        }
+                                    }
+                                },
+                                {
+                                    name: 'highest value',
+                                    type: 'max',
+                                    valueDim: 'highest'
+                                },
+                                {
+                                    name: 'lowest value',
+                                    type: 'min',
+                                    valueDim: 'lowest'
+                                },
+                                {
+                                    name: 'average value on close',
+                                    type: 'average',
+                                    valueDim: 'close'
+                                }
+                            ],
+                            tooltip: {
+                                formatter: function(param) {
+                                    return param.name + '<br>' + (param.data.coord || '');
+                                }
+                            }
+                        },
+                        markLine: {
+                            symbol: ['none', 'none'],
+                            data: [
+                                [{
+                                        name: 'from lowest to highest',
+                                        type: 'min',
+                                        valueDim: 'lowest',
+                                        symbol: 'circle',
+                                        symbolSize: 10,
+                                        label: {
+                                            normal: {
+                                                show: false
+                                            },
+                                            emphasis: {
+                                                show: false
+                                            }
+                                        }
+                                    },
+                                    {
+                                        type: 'max',
+                                        valueDim: 'highest',
+                                        symbol: 'circle',
+                                        symbolSize: 10,
+                                        label: {
+                                            normal: {
+                                                show: false
+                                            },
+                                            emphasis: {
+                                                show: false
+                                            }
+                                        }
+                                    }
+                                ],
+                                {
+                                    name: 'min line on close',
+                                    type: 'min',
+                                    valueDim: 'close'
+                                },
+                                {
+                                    name: 'max line on close',
+                                    type: 'max',
+                                    valueDim: 'close'
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        name: 'MA5',
+                        type: 'line',
+                        data: calculateMA(5),
+                        smooth: true,
+                        lineStyle: {
+                            normal: {
+                                opacity: 0.5
+                            }
+                        }
+                    },
+                    {
+                        name: 'MA10',
+                        type: 'line',
+                        data: calculateMA(10),
+                        smooth: true,
+                        lineStyle: {
+                            normal: {
+                                opacity: 0.5
+                            }
+                        }
+                    },
+                    {
+                        name: 'MA20',
+                        type: 'line',
+                        data: calculateMA(20),
+                        smooth: true,
+                        lineStyle: {
+                            normal: {
+                                opacity: 0.5
+                            }
+                        }
+                    },
+                    {
+                        name: 'MA30',
+                        type: 'line',
+                        data: calculateMA(30),
+                        smooth: true,
+                        lineStyle: {
+                            normal: {
+                                opacity: 0.5
+                            }
+                        }
+                    },
 
-function DrawChart() {
-    $('#container').block({
-        message: '<img src="http://www.broadwaybalancesamerica.com/images/ajax-loader.gif" />',
-        css: {
-            border: 'none',
-            backgroundColor: 'transparent'
-        }
-    });
-    getHistoryData(quote + '_' + base).then(historyDataToKline).then(() => {
-        data0 = splitData(historydata);
-        setOption();
-        if (tickerOption && typeof tickerOption === "object") {
-            myChart.setOption(tickerOption, true);
-            $('#container').unblock();
-        }
-    });
+                ]
+            };
+            if (tickerOption && typeof tickerOption === "object") {
+                myChart.setOption(tickerOption, true);
+                resolve();
+            }
+
+        });
+
+    })
+
 }
 // Echart Candlestick End
 
@@ -675,15 +693,24 @@ $('#tickerTable').on('click', '.tickTr', (e) => {
     exchange.webSockets_unsubscribe(exchange.marketChannel);
     $('#asksTable tbody.data').html('');
     $('#bidsTable tbody.data').html('');
-    exchange.webSockets_subscribe(quote+'_'+base);
-    DrawChart();
+    exchange.webSockets_subscribe(quote + '_' + base);
+    $('#container').block({
+        message: '<img src="http://www.broadwaybalancesamerica.com/images/ajax-loader.gif" />',
+        css: {
+            border: 'none',
+            backgroundColor: 'transparent'
+        }
+    });
+    drawTicker().then(() => {
+        $('#container').unblock();
+    });
 });
 
 
 //reDraw Chart with different timespan
 $('.btn-timespan').on('click', e => {
     timeSpan = parseInt($(e.target).attr('timeSpan'));
-    DrawChart()
+    drawTicker()
 });
 
 
@@ -698,8 +725,8 @@ $('.btn-quote').on('click', e => {
 });
 
 //load 100 more
-$('tbody.loadMore').on('click' , e=> {
-    tradeDisplayLimit += 100 ;
+$('tbody.loadMore').on('click', e => {
+    tradeDisplayLimit += 100;
     $('.traderTable').block({
         message: '<img src="http://www.broadwaybalancesamerica.com/images/ajax-loader.gif" />',
         css: {
@@ -707,7 +734,7 @@ $('tbody.loadMore').on('click' , e=> {
             backgroundColor: 'transparent'
         }
     });
-    setTimeout(()=>$('.traderTable').unblock(),1000);
+    setTimeout(() => $('.traderTable').unblock(), 1000);
     writeTradeTable('asks');
     writeTradeTable('bids');
 });
@@ -715,10 +742,19 @@ $('tbody.loadMore').on('click' , e=> {
 
 /*Table Sortable Start*/
 function sortTable(table, col, reverse) {
+    function floatCompare(a, b) {
+        if (a === b)
+            return 0
+        if (a < b)
+            return 1
+        else if (a > b)
+            return -1
+    }
+
     var tb = table.tBodies[0], // use `<tbody>` to ignore `<thead>` and `<tfoot>` rows
         tr = Array.prototype.slice.call(tb.rows, 0), // put rows into array
         i;
-        reverse = -((+reverse) || -1);
+    reverse = -((+reverse) || -1);
     tr = tr.sort(function(a, b) { // sort rows
         let reval;
         try {
@@ -726,31 +762,22 @@ function sortTable(table, col, reverse) {
                 throw 'This is String';
             reval = floatCompare(parseFloat(a.cells[col].textContent.trim()) // using `.textContent.trim()` for test cpmpare floats
                 , parseFloat(b.cells[col].textContent.trim())
-                );
+            );
         } catch (err) {
             reval = a.cells[col].textContent.trim() // using `.textContent.trim()` for test
-            .localeCompare(b.cells[col].textContent.trim())
+                .localeCompare(b.cells[col].textContent.trim())
 
         }
         return reverse // `-1 *` if want opposite order
-        *
-        reval;
+            *
+            reval;
     });
     for (i = 0; i < tr.length; ++i) tb.appendChild(tr[i]); // append each row in order
 }
 
-function floatCompare(a, b) {
-    if (a === b)
-        return 0
-    if (a < b)
-        return 1
-    else if (a > b)
-        return -1
-}
-
 function makeSortable(table) {
     var th = table.tHead,
-    i;
+        i;
     th && (th = th.rows[0]) && (th = th.cells);
     if (th) i = th.length;
     else return; // if no `<thead>` then do nothing
@@ -765,7 +792,7 @@ function makeSortable(table) {
 function makeAllSortable(parent) {
     parent = parent || document.body;
     var t = parent.getElementsByTagName('table'),
-    i = t.length;
+        i = t.length;
     while (--i >= 0) makeSortable(t[i]);
 }
 
@@ -777,40 +804,72 @@ window.onload = function() {
 
 
 
-
 /*Trader Chart Start */
-function DrawTrader(){
-    var tdom = document.getElementById("tradeChart");
-    var tmyChart = echarts.init(tdom);
-    toption = null;
-    var base = +new Date(1968, 9, 3);
-    var oneDay = 24 * 3600 * 1000;
-    var date = [];
-    var data = [Math.random() * 300];
-    var data1 = [Math.random() * 300];
+function drawTrader() {
+    function formattraderData() {
+        let traders = [exchange.trade.asks, exchange.trade.bids]
+        let asksRates = Object.keys(traders[0]).map(parseFloat).sort((x, y) => {
+            return x - y
+        });
+        let bidsRates = Object.keys(traders[1]).map(parseFloat).sort((x, y) => {
+            return y - x
+        });
+        let asksData = [];
+        let bidsData = [];
+        let sum = 0;
+        for (let rate of asksRates) {
+            sum += traders[0][rate];
+            asksData.push([rate, sum]);
+        }
+        sum = 0;
+        for (let rate of bidsRates) {
+            sum += traders[1][rate];
+            bidsData.push([rate, sum]);
+        }
+        asksData.sort((x, y) => {
+            return x[0] - y[0]
+        });
+        bidsData.sort((x, y) => {
+            return x[0] - y[0]
+        });
+        return [asksData, bidsData];
 
-
-    for (var i = 1; i < 20000; i++) {
-        var now = new Date(base += oneDay);
-        date.push([now.getFullYear(), now.getMonth() + 1, now.getDate()].join('/'));
-        data.push(Math.round((Math.random() - 0.5) * 20 + data[i - 1]));
-        data1.push(Math.round((Math.random() - 0.5) * 20 + data1[i - 1]));
     }
+    let arr = formattraderData();
+    let tdom = document.getElementById("tradeChart");
+    let tmyChart = echarts.init(tdom);
+    toption = null;
+    let rates = [];
+    let asks = [];
+    let bids = [];
+    let start = arr[1].length;
+    let end = arr[0].length;
+    let all = start + end;
+    start = ((start * 0.5) / all) * 100
+    end = ((start + end * 0.5) / all) * 100
 
-    date = data1;
-
-
+    for (let trade of arr[1]) {
+        rates.push(trade[0]);
+        bids.push(trade[1]);
+    }
+    for (let index in rates)
+        asks.push(0);
+    for (let trade of arr[0]) {
+        rates.push(trade[0]);
+        asks.push(trade[1]);
+        bids.push(0);
+    }
 
     toption = {
         tooltip: {
             trigger: 'axis',
-            position: function (pt) {
+            position: function(pt) {
                 return [pt[0], '10%'];
             }
         },
         title: {
             left: 'center',
-            text: '大数据量面积图',
+            text: 'Market Depth',
         },
         toolbox: {
             feature: {
@@ -824,16 +883,16 @@ function DrawTrader(){
         xAxis: {
             type: 'category',
             boundaryGap: false,
-            data: date
+            data: rates
         },
         yAxis: {
             type: 'value',
-            boundaryGap: [0, '100%']
+            // boundaryGap: [0, '100%']
         },
         dataZoom: [{
             type: 'inside',
-            start: 0,
-            end: 10
+            start: start,
+            end: end
         }, {
             start: 0,
             end: 10,
@@ -847,11 +906,10 @@ function DrawTrader(){
                 shadowOffsetY: 2
             }
         }],
-        series: [
-        {
-            name:'模拟数据',
-            type:'line',
-            smooth:true,
+        series: [{
+            name: 'bids',
+            type: 'line',
+            smooth: true,
             symbol: 'none',
             sampling: 'average',
             itemStyle: {
@@ -863,41 +921,39 @@ function DrawTrader(){
                 normal: {
                     color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{
                         offset: 0,
-                        color: 'green'
+                        color: '#227700'
                     }, {
                         offset: 1,
-                        color: 'green'
+                        color: '#CCFF99'
                     }])
                 }
             },
-            data: data
-        },{
-            name:'模拟数据',
-            type:'line',
-            smooth:true,
+            data: bids.map((x) => {return x.toFixed(3)})
+        }, {
+            name: 'asks',
+            type: 'line',
+            smooth: true,
             symbol: 'none',
             sampling: 'average',
             itemStyle: {
                 normal: {
-                    color: 'blue'
+                    color: 'green'
                 }
             },
             areaStyle: {
                 normal: {
                     color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{
                         offset: 0,
-                        color: 'yellow'
+                        color: '#880000'
                     }, {
                         offset: 1,
-                        color: 'yellow'
+                        color: '#FFCCCC'
                     }])
                 }
             },
-            data: data1
-        }
-        ]
-    };
-    ;
+            data: asks.map((x) => {return x.toFixed(3)})
+        }]
+    };;
     if (toption && typeof toption === "object") {
         tmyChart.setOption(toption, true);
     }
@@ -906,4 +962,7 @@ function DrawTrader(){
 
 }
 
-DrawTrader();
+
+window.setInterval(function() {
+    drawTrader();
+}, 5000);
