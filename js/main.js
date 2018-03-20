@@ -27,7 +27,7 @@ var close = open;
 var high = open;
 var low = open;
 var data0 = []
-var timeSpan = 60;
+var timeSpan = 60 ;
 var base = 'ETH';
 var quote = 'USDT';
 var tradeDisplayLimit = 50;
@@ -188,15 +188,12 @@ poloniex = function() {
         mySocket.onopen = function(e) {
 
             self.conn = e.target;
-            tickInit().then(writeTickerTable).then(self.webSockets_subscribe).then(self.webSockets_subscribe).then(() => {
-                drawTicker().then(() => {
-                    $('#container').unblock();
-                });
-            }).then(() => {
+            tickInit().then(writeTickerTable).then(()=>{
                 sortTable($('#tickerTable').get(0), 1, 0); //SortByPrice
+            }).then(self.webSockets_subscribe).then(self.webSockets_subscribe).then(drawTicker).then(() =>{
+                $('#container').unblock();
             });
-        };
-
+        }
         mySocket.onclose = function(e) {
 
             console.log('Socket Close');
@@ -477,7 +474,7 @@ function drawTicker() {
             tickerOption = {
                 title: {
                     text: quote + '_' + base,
-                    left: 0
+                    left: 'center'
                 },
                 tooltip: {
                     trigger: 'axis',
@@ -486,7 +483,8 @@ function drawTicker() {
                     }
                 },
                 legend: {
-                    data: ['Kline', 'MA5', 'MA10', 'MA20', 'MA30']
+                    data: ['Kline', 'MA5', 'MA10', 'MA20', 'MA30'],
+                    left:'right'
                 },
                 grid: {
                     left: '10%',
@@ -956,11 +954,8 @@ function drawTrader() {
     if (toption && typeof toption === "object") {
         tmyChart.setOption(toption, true);
     }
-
-
-
 }
-
+/*Trader Chart End */
 
 window.setInterval(function() {
     drawTrader();
