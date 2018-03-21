@@ -27,7 +27,7 @@ var close = open;
 var high = open;
 var low = open;
 var data0 = []
-var timeSpan = 60 ;
+var timeSpan = 60;
 var base = 'ETH';
 var quote = 'USDT';
 var tradeDisplayLimit = 50;
@@ -35,116 +35,117 @@ var volume = [];
 
 poloniex = function() {
     let t = this;
-    let self = {  
-        'tick' : {},
-        'trade' : {
+    let self = {
+        'tick': {},
+        'trade': {
             'asks': {},
             'bids': {}
         }
     };
-        /*this.tick = {};
-        this.trade = {
-            'asks': {},
-            'bids': {}
-        };*/
+    /*this.tick = {};
+    this.trade = {
+        'asks': {},
+        'bids': {}
+    };*/
 
-        this.tick = cp=>{
-            return self.tick[cp];
-        }
+    this.tick = cp => {
+        return self.tick[cp];
+    }
 
-        this.tickes =  ()=>{
-            return cps ;
-        }
+    this.tickes = () => {
+        return cps;
+    }
 
-        this.trade = side => {
-            return self.trade[side];
-        }
-        let ids = {};
-        let cps = {};
-        this.marketChannel;
+    this.trade = side => {
+        return self.trade[side];
+    }
 
-        function tickEvent(data) {
-            cp = ids[data[0]];
-            let change = false
+    this.marketChannel = 0 ;
+    let ids = {};
+    let cps = {};
 
-            try {
-                if (self.tick[cp].price !== parseFloat(data[1]))
-                    change = true;
-                self.tick[cp].price = parseFloat(data[1]);
-                self.tick[cp].high = parseFloat(data[8]);
-                self.tick[cp].low = parseFloat(data[9]);
-                self.tick[cp].volume = parseFloat(data[5]).toFixed(3);
-                self.tick[cp].change = (parseFloat(data[4]) * 100).toFixed(3);
-                if (cp.includes(quote + '_'))
-                    updateTickerTable(cp, change);
+    function tickEvent(data) {
+        cp = ids[data[0]];
+        let change = false
 
-
-                trade = {
-                    'rate': self.tick[cp].price,
-                    'date': Date.now() / 1000
-                }
-
-                if (cp === quote + '_' + base) {
-                    if (trade.date > startTime + timeSpan) {
-
-                        data0.categoryData.push(start)
-                        data0.values.push([open, close, low, high])
-                        startTime = trade.date;
-                        start = timestampToDate(startTime);
-                        open = trade.rate;
-                        high = open;
-                        low = open;
-                    }
+        try {
+            if (self.tick[cp].price !== parseFloat(data[1]))
+                change = true;
+            self.tick[cp].price = parseFloat(data[1]);
+            self.tick[cp].high = parseFloat(data[8]);
+            self.tick[cp].low = parseFloat(data[9]);
+            self.tick[cp].volume = parseFloat(data[5]).toFixed(3);
+            self.tick[cp].change = (parseFloat(data[4]) * 100).toFixed(3);
+            if (cp.includes(quote + '_'))
+                updateTickerTable(cp, change);
 
 
-                    if (trade.rate > high)
-                        high = trade.rate;
-                    else if (trade.rate < low)
-                        low = trade.rate;
-                    close = trade.rate;
-                }
-            } catch (err) {
-                console.log(err);
+            trade = {
+                'rate': self.tick[cp].price,
+                'date': Date.now() / 1000
             }
-        }
 
-        function tickInit() {
-            return new Promise(resolve => {
-                $.getJSON('https://poloniex.com/public?command=returnTicker', data => {
-                    let row;
-                    for (let d in data) {
-                        ids[data[d]['id']] = d;
-                        cps[d] = data[d]['id'];
-                        self.tick[d] = {
-                            'price': parseFloat(data[d].last),
-                            'volume': parseFloat(data[d].baseVolume).toFixed(3),
-                            'change': (parseFloat(data[d].percentChange) * 100).toFixed(3),
-                            'high': parseFloat(data[d].high24hr),
-                            'low': parseFloat(data[d].low24hr)
-                        };
-                    }
-                    resolve(1002);
-                })
+            if (cp === quote + '_' + base) {
+                if (trade.date > startTime + timeSpan) {
+
+                    data0.categoryData.push(start)
+                    data0.values.push([open, close, low, high])
+                    startTime = trade.date;
+                    start = timestampToDate(startTime);
+                    open = trade.rate;
+                    high = open;
+                    low = open;
+                }
+
+
+                if (trade.rate > high)
+                    high = trade.rate;
+                else if (trade.rate < low)
+                    low = trade.rate;
+                close = trade.rate;
+            }
+        } catch (err) {
+            console.log(err);
+        }
+    }
+
+    function tickInit() {
+        return new Promise(resolve => {
+            $.getJSON('https://poloniex.com/public?command=returnTicker', data => {
+                let row;
+                for (let d in data) {
+                    ids[data[d]['id']] = d;
+                    cps[d] = data[d]['id'];
+                    self.tick[d] = {
+                        'price': parseFloat(data[d].last),
+                        'volume': parseFloat(data[d].baseVolume).toFixed(3),
+                        'change': (parseFloat(data[d].percentChange) * 100).toFixed(3),
+                        'high': parseFloat(data[d].high24hr),
+                        'low': parseFloat(data[d].low24hr)
+                    };
+                }
+                resolve(1002);
             })
+        })
 
-        }
+    }
 
-        function tradeEvent(datas, cp) {
-            for (let i in datas) {
-                let data = datas[i];
-                if (data[0] === 'o') {
-                    let side = data[1] ? 'bids' : 'asks';
-                    let rate = parseFloat(data[2]).toString();
-                    if (data[3] === '0.00000000') {
-                        delete self.trade[side][rate];
-                        removeTradeRow(side, rate);
-                    } else {
-                        self.trade[side][rate] = parseFloat(data[3]);
-                        updateTradeTable(side, rate);
-                    }
-
+    function tradeEvent(datas, cp) {
+        for (let i in datas) {
+            let data = datas[i];
+            if (data[0] === 'o') {
+                let side = data[1] ? 'bids' : 'asks';
+                let rate = parseFloat(data[2]).toString();
+                if (data[3] === '0.00000000') {
+                    delete self.trade[side][rate];
+                    removeTradeRow(side, rate);
+                } else {
+                    self.trade[side][rate] = parseFloat(data[3]);
+                    updateTradeTable(side, rate);
                 }
+
             }
+        }
 
 
         //n = Object.keys(self.trade.asks).map(parseFloat);
@@ -171,7 +172,6 @@ poloniex = function() {
 
     this.webSockets_subscribe = channel => {
         let conn = self.conn
-
         if (conn.readyState === 1) {
             var params = {
                 command: "subscribe",
@@ -179,15 +179,15 @@ poloniex = function() {
             };
             conn.send(JSON.stringify(params));
             console.log('Subscribe Channel {0}'.format(channel));
-            return quote+'_'+base
+            return quote + '_' + base
         }
     }
 
     this.webSockets_unsubscribe = channel => {
         let conn = self.conn;
         if (conn.readyState == 1 && channel > 0) {
-            if (channel == self.marketChannel)
-                self.marketChannel = 0;
+            if (channel == t.marketChannel)
+                t.marketChannel = 0;
             conn.send(JSON.stringify({
                 command: "unsubscribe",
                 channel: channel
@@ -206,9 +206,9 @@ poloniex = function() {
 
             self.conn = e.target;
 
-            tickInit().then(t.webSockets_subscribe).then(t.webSockets_subscribe).then(writeTickerTable).then(()=>{
+            tickInit().then(t.webSockets_subscribe).then(t.webSockets_subscribe).then(writeTickerTable).then(() => {
                 sortTable($('#tickerTable').get(0), 1, 0); //SortByPrice
-            }).then(drawTicker).then(() =>{
+            }).then(drawTicker).then(() => {
                 $('#container').unblock();
             });
         }
@@ -227,13 +227,13 @@ poloniex = function() {
             data = JSON.parse(e.data);
             channel = data[0];
             var cp =
-            ids[channel];
+                ids[channel];
             if (channel === 1002) {
                 if (data[1] === 1) return; // subscript 1002 success
                 tickEvent(data[2]);
             } else if (channel === 1010) {}
             // heartbeat
-            else if (channel === self.marketChannel) {
+            else if (channel === t.marketChannel) {
                 tradeEvent(data[2], cp);
                 // Trade Event
             } else {
@@ -244,7 +244,7 @@ poloniex = function() {
 
                 if (data[1] === 0); // unsubscript
                 else if (data[2][0][0] === 'i') { // TradeInit
-                    self.marketChannel = channel;
+                    t.marketChannel = channel;
                     tradeInit(data[2][0][1].orderBook, cp).then(drawTrader);
                 }
                 // Trade init
@@ -319,11 +319,11 @@ function updateTradeTable(side, rate) {
     if ($('#' + rate.replace('.', '\\.') + side).html() === undefined) {
         $('#' + side + 'Table tbody.data tr:last').after("<tr class='" + side + "Tr' id=" + rate.toString() + side + ">" + row + '</tr>');
         if (side === 'asks')
-            sortTable($('#'+side + 'Table').get(0), 0, 1);
+            sortTable($('#' + side + 'Table').get(0), 0, 1);
         else
-            sortTable($('#'+side + 'Table').get(0), 0, 0);
+            sortTable($('#' + side + 'Table').get(0), 0, 0);
     } else
-    $('#' + rate.replace('.', '\\.') + side).html(row);
+        $('#' + rate.replace('.', '\\.') + side).html(row);
     updateTradeSum(side);
     $('#' + rate.replace('.', '\\.') + side).addClass('color');
     setTimeout(() => {
@@ -405,8 +405,8 @@ function historyDataToKline(datas) {
             open = trade.rate;
             high = open;
             low = open;
-            v = 0 ;
-            i++ ;
+            v = 0;
+            i++;
         }
 
         if (trade.rate > high)
@@ -463,6 +463,7 @@ function drawTicker() {
             let upBorderColor = '#8A0000';
             let downColor = '#00da3c';
             let downBorderColor = '#008F28';
+
             function splitData(rawData) {
                 var categoryData = [];
                 var values = []
@@ -506,229 +507,246 @@ function drawTicker() {
                 },
                 legend: {
                     data: ['Kline', 'MA5', 'MA10', 'MA20', 'MA30'],
-                    left:'right'
+                    left: 'right'
                 },
-                grid:[
-                {
-                    left: '10%',
-                    right: '8%',
-                    height: '50%'
-                },
-                {
-                    left: '10%',
-                    right: '8%',
-                    top: '63%',
-                    height: '16%'
-                }
-                ],
-                xAxis:[{
-                    type: 'category',
-                    data: data0.categoryData,
-                    scale: true,
-                    boundaryGap: false,
-                    axisLine: {
-                        onZero: false
+                grid: [{
+                        left: '10%',
+                        right: '8%',
+                        height: '50%'
                     },
-                    splitLine: {
-                        show: false
-                    },
-                    splitNumber: 20,
-                    min: 'dataMin',
-                    max: 'dataMax'
-                },
-                {
-                    type: 'category',
-                    gridIndex: 1,
-                    data: data0.categoryData,
-                    scale: true,
-                    boundaryGap : false,
-                    axisLine: {onZero: false},
-                    axisTick: {show: false},
-                    splitLine: {show: false},
-                    axisLabel: {show: false},
-                    splitNumber: 20,
-                    min: 'dataMin',
-                    max: 'dataMax'
-                }],
-                yAxis: [{
-                    scale: true,
-                    splitArea: {
-                        show: true
+                    {
+                        left: '10%',
+                        right: '8%',
+                        top: '63%',
+                        height: '16%'
                     }
-                },
-                {
-                    scale: true,
-                    gridIndex: 1,
-                    splitNumber: 2,
-                    axisLabel: {show: false},
-                    axisLine: {show: false},
-                    axisTick: {show: false},
-                    splitLine: {show: false}
-                }],
+                ],
+                xAxis: [{
+                        type: 'category',
+                        data: data0.categoryData,
+                        scale: true,
+                        boundaryGap: false,
+                        axisLine: {
+                            onZero: false
+                        },
+                        splitLine: {
+                            show: false
+                        },
+                        splitNumber: 20,
+                        min: 'dataMin',
+                        max: 'dataMax'
+                    },
+                    {
+                        type: 'category',
+                        gridIndex: 1,
+                        data: data0.categoryData,
+                        scale: true,
+                        boundaryGap: false,
+                        axisLine: {
+                            onZero: false
+                        },
+                        axisTick: {
+                            show: false
+                        },
+                        splitLine: {
+                            show: false
+                        },
+                        axisLabel: {
+                            show: false
+                        },
+                        splitNumber: 20,
+                        min: 'dataMin',
+                        max: 'dataMax'
+                    }
+                ],
+                yAxis: [{
+                        scale: true,
+                        splitArea: {
+                            show: true
+                        }
+                    },
+                    {
+                        scale: true,
+                        gridIndex: 1,
+                        splitNumber: 2,
+                        axisLabel: {
+                            show: false
+                        },
+                        axisLine: {
+                            show: false
+                        },
+                        axisTick: {
+                            show: false
+                        },
+                        splitLine: {
+                            show: false
+                        }
+                    }
+                ],
                 dataZoom: [{
-                    type: 'inside',
-                    xAxisIndex: [0, 1],
-                    start: 90,
-                    end: 100
-                },
-                {
-                    show: true,
-                    xAxisIndex: [0, 1],
-                    type: 'slider',
-                    y: '90%',
-                    start: 90,
-                    end: 100
-                }
+                        type: 'inside',
+                        xAxisIndex: [0, 1],
+                        start: 90,
+                        end: 100
+                    },
+                    {
+                        show: true,
+                        xAxisIndex: [0, 1],
+                        type: 'slider',
+                        y: '90%',
+                        start: 90,
+                        end: 100
+                    }
                 ],
                 series: [{
-                    name: 'Kline',
-                    type: 'candlestick',
-                    data: data0.values,
-                    itemStyle: {
-                        normal: {
-                            color: upColor,
-                            color0: downColor,
-                            borderColor: upBorderColor,
-                            borderColor0: downBorderColor
-                        }
-                    },
-                    markPoint: {
-                        label: {
+                        name: 'Kline',
+                        type: 'candlestick',
+                        data: data0.values,
+                        itemStyle: {
                             normal: {
-                                formatter: function(param) {
-                                    return param != null ? param.value.toFixed(3) : '';
-                                }
+                                color: upColor,
+                                color0: downColor,
+                                borderColor: upBorderColor,
+                                borderColor0: downBorderColor
                             }
                         },
-                        data: [{
-                            name: 'XX标点',
-                            coord: ['2013/5/31', 2300],
-                            value: 2300,
-                            itemStyle: {
+                        markPoint: {
+                            label: {
                                 normal: {
-                                    color: 'rgb(41,60,85)'
+                                    formatter: function(param) {
+                                        return param != null ? param.value.toFixed(3) : '';
+                                    }
+                                }
+                            },
+                            data: [{
+                                    name: 'XX标点',
+                                    coord: ['2013/5/31', 2300],
+                                    value: 2300,
+                                    itemStyle: {
+                                        normal: {
+                                            color: 'rgb(41,60,85)'
+                                        }
+                                    }
+                                },
+                                {
+                                    name: 'highest value',
+                                    type: 'max',
+                                    valueDim: 'highest'
+                                },
+                                {
+                                    name: 'lowest value',
+                                    type: 'min',
+                                    valueDim: 'lowest'
+                                },
+                                {
+                                    name: 'average value on close',
+                                    type: 'average',
+                                    valueDim: 'close'
+                                }
+                            ],
+                            tooltip: {
+                                formatter: function(param) {
+                                    return param.name + '<br>' + (param.data.coord || '');
                                 }
                             }
                         },
-                        {
-                            name: 'highest value',
-                            type: 'max',
-                            valueDim: 'highest'
-                        },
-                        {
-                            name: 'lowest value',
-                            type: 'min',
-                            valueDim: 'lowest'
-                        },
-                        {
-                            name: 'average value on close',
-                            type: 'average',
-                            valueDim: 'close'
+                        markLine: {
+                            symbol: ['none', 'none'],
+                            data: [
+                                [{
+                                        name: 'from lowest to highest',
+                                        type: 'min',
+                                        valueDim: 'lowest',
+                                        symbol: 'circle',
+                                        symbolSize: 10,
+                                        label: {
+                                            normal: {
+                                                show: false
+                                            },
+                                            emphasis: {
+                                                show: false
+                                            }
+                                        }
+                                    },
+                                    {
+                                        type: 'max',
+                                        valueDim: 'highest',
+                                        symbol: 'circle',
+                                        symbolSize: 10,
+                                        label: {
+                                            normal: {
+                                                show: false
+                                            },
+                                            emphasis: {
+                                                show: false
+                                            }
+                                        }
+                                    }
+                                ],
+                                {
+                                    name: 'min line on close',
+                                    type: 'min',
+                                    valueDim: 'close'
+                                },
+                                {
+                                    name: 'max line on close',
+                                    type: 'max',
+                                    valueDim: 'close'
+                                }
+                            ]
                         }
-                        ],
-                        tooltip: {
-                            formatter: function(param) {
-                                return param.name + '<br>' + (param.data.coord || '');
+                    },
+                    {
+                        name: 'MA5',
+                        type: 'line',
+                        data: calculateMA(5),
+                        smooth: true,
+                        lineStyle: {
+                            normal: {
+                                opacity: 0.5
                             }
                         }
                     },
-                    markLine: {
-                        symbol: ['none', 'none'],
-                        data: [
-                        [{
-                            name: 'from lowest to highest',
-                            type: 'min',
-                            valueDim: 'lowest',
-                            symbol: 'circle',
-                            symbolSize: 10,
-                            label: {
-                                normal: {
-                                    show: false
-                                },
-                                emphasis: {
-                                    show: false
-                                }
-                            }
-                        },
-                        {
-                            type: 'max',
-                            valueDim: 'highest',
-                            symbol: 'circle',
-                            symbolSize: 10,
-                            label: {
-                                normal: {
-                                    show: false
-                                },
-                                emphasis: {
-                                    show: false
-                                }
+                    {
+                        name: 'MA10',
+                        type: 'line',
+                        data: calculateMA(10),
+                        smooth: true,
+                        lineStyle: {
+                            normal: {
+                                opacity: 0.5
                             }
                         }
-                        ],
-                        {
-                            name: 'min line on close',
-                            type: 'min',
-                            valueDim: 'close'
-                        },
-                        {
-                            name: 'max line on close',
-                            type: 'max',
-                            valueDim: 'close'
+                    },
+                    {
+                        name: 'MA20',
+                        type: 'line',
+                        data: calculateMA(20),
+                        smooth: true,
+                        lineStyle: {
+                            normal: {
+                                opacity: 0.5
+                            }
                         }
-                        ]
-                    }
-                },
-                {
-                    name: 'MA5',
-                    type: 'line',
-                    data: calculateMA(5),
-                    smooth: true,
-                    lineStyle: {
-                        normal: {
-                            opacity: 0.5
+                    },
+                    {
+                        name: 'MA30',
+                        type: 'line',
+                        data: calculateMA(30),
+                        smooth: true,
+                        lineStyle: {
+                            normal: {
+                                opacity: 0.5
+                            }
                         }
+                    },
+                    {
+                        name: 'Volume',
+                        type: 'bar',
+                        xAxisIndex: 1,
+                        yAxisIndex: 1,
+                        data: volume
                     }
-                },
-                {
-                    name: 'MA10',
-                    type: 'line',
-                    data: calculateMA(10),
-                    smooth: true,
-                    lineStyle: {
-                        normal: {
-                            opacity: 0.5
-                        }
-                    }
-                },
-                {
-                    name: 'MA20',
-                    type: 'line',
-                    data: calculateMA(20),
-                    smooth: true,
-                    lineStyle: {
-                        normal: {
-                            opacity: 0.5
-                        }
-                    }
-                },
-                {
-                    name: 'MA30',
-                    type: 'line',
-                    data: calculateMA(30),
-                    smooth: true,
-                    lineStyle: {
-                        normal: {
-                            opacity: 0.5
-                        }
-                    }
-                },
-                {
-                    name: 'Volume',
-                    type: 'bar',
-                    xAxisIndex: 1,
-                    yAxisIndex: 1,
-                    data: volume
-                }
                 ]
             };
             if (tickerOption && typeof tickerOption === "object") {
@@ -738,7 +756,7 @@ function drawTicker() {
 
         });
 
-})
+    })
 
 }
 // Echart Candlestick End
@@ -816,7 +834,7 @@ function sortTable(table, col, reverse) {
     var tb = table.tBodies[0], // use `<tbody>` to ignore `<thead>` and `<tfoot>` rows
         tr = Array.prototype.slice.call(tb.rows, 0), // put rows into array
         i;
-        reverse = -((+reverse) || -1);
+    reverse = -((+reverse) || -1);
     tr = tr.sort(function(a, b) { // sort rows
         let reval;
         try {
@@ -824,22 +842,22 @@ function sortTable(table, col, reverse) {
                 throw 'This is String';
             reval = floatCompare(parseFloat(a.cells[col].textContent.trim()) // using `.textContent.trim()` for test cpmpare floats
                 , parseFloat(b.cells[col].textContent.trim())
-                );
+            );
         } catch (err) {
             reval = a.cells[col].textContent.trim() // using `.textContent.trim()` for test
-            .localeCompare(b.cells[col].textContent.trim())
+                .localeCompare(b.cells[col].textContent.trim())
 
         }
         return reverse // `-1 *` if want opposite order
-        *
-        reval;
+            *
+            reval;
     });
     for (i = 0; i < tr.length; ++i) tb.appendChild(tr[i]); // append each row in order
 }
 
 function makeSortable(table) {
     var th = table.tHead,
-    i;
+        i;
     th && (th = th.rows[0]) && (th = th.cells);
     if (th) i = th.length;
     else return; // if no `<thead>` then do nothing
@@ -854,7 +872,7 @@ function makeSortable(table) {
 function makeAllSortable(parent) {
     parent = parent || document.body;
     var t = parent.getElementsByTagName('table'),
-    i = t.length;
+        i = t.length;
     while (--i >= 0) makeSortable(t[i]);
 }
 
@@ -911,7 +929,7 @@ function drawTrader() {
         rates.push(trade[0]);
         bids.push(trade[1]);
     }
-    rates.forEach(()=>asks.push(0));
+    rates.forEach(() => asks.push(0));
     for (let trade of arr[0]) {
         rates.push(trade[0]);
         asks.push(trade[1]);
@@ -986,7 +1004,9 @@ function drawTrader() {
                     }])
                 }
             },
-            data: bids.map((x) => {return x.toFixed(3)})
+            data: bids.map((x) => {
+                return x.toFixed(3)
+            })
         }, {
             name: 'asks',
             type: 'line',
@@ -1009,7 +1029,9 @@ function drawTrader() {
                     }])
                 }
             },
-            data: asks.map((x) => {return x.toFixed(3)})
+            data: asks.map((x) => {
+                return x.toFixed(3)
+            })
         }]
     };;
     if (toption && typeof toption === "object") {
