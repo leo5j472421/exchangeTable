@@ -31,102 +31,120 @@ var timeSpan = 60 ;
 var base = 'ETH';
 var quote = 'USDT';
 var tradeDisplayLimit = 50;
-
+var volume = [];
 
 poloniex = function() {
-    let self = this;
-    this.tick = {};
-    this.trade = {
-        'asks': {},
-        'bids': {}
+    let t = this;
+    let self = {  
+        'tick' : {},
+        'trade' : {
+            'asks': {},
+            'bids': {}
+        }
     };
-    let ids = {};
-    let cps = {};
-    this.marketChannel;
+        /*this.tick = {};
+        this.trade = {
+            'asks': {},
+            'bids': {}
+        };*/
 
-    function tickEvent(data) {
-        cp = ids[data[0]];
-        let change = false
-
-        try {
-            if (self.tick[cp].price !== parseFloat(data[1]))
-                change = true;
-            self.tick[cp].price = parseFloat(data[1]);
-            self.tick[cp].high = parseFloat(data[8]);
-            self.tick[cp].low = parseFloat(data[9]);
-            self.tick[cp].volume = parseFloat(data[5]).toFixed(3);
-            self.tick[cp].change = (parseFloat(data[4]) * 100).toFixed(3);
-            if (cp.includes(quote + '_'))
-                updateTickerTable(cp, change);
-
-
-            trade = {
-                'rate': self.tick[cp].price,
-                'date': Date.now() / 1000
-            }
-
-            if (cp === quote + '_' + base) {
-                if (trade.date > startTime + timeSpan) {
-
-                    data0.categoryData.push(start)
-                    data0.values.push([open, close, low, high])
-                    startTime = trade.date;
-                    start = timestampToDate(startTime);
-                    open = trade.rate;
-                    high = open;
-                    low = open;
-                }
-
-
-                if (trade.rate > high)
-                    high = trade.rate;
-                else if (trade.rate < low)
-                    low = trade.rate;
-                close = trade.rate;
-            }
-        } catch (err) {
-            console.log(err);
+        this.tick = cp=>{
+            return self.tick[cp];
         }
-    }
 
-    function tickInit() {
-        return new Promise(resolve => {
-            $.getJSON('https://poloniex.com/public?command=returnTicker', data => {
-                let row;
-                for (let d in data) {
-                    ids[data[d]['id']] = d;
-                    cps[d] = data[d]['id'];
-                    self.tick[d] = {
-                        'price': parseFloat(data[d].last),
-                        'volume': parseFloat(data[d].baseVolume).toFixed(3),
-                        'change': (parseFloat(data[d].percentChange) * 100).toFixed(3),
-                        'high': parseFloat(data[d].high24hr),
-                        'low': parseFloat(data[d].low24hr)
-                    };
+        this.tickes =  ()=>{
+            return cps ;
+        }
+
+        this.trade = side => {
+            return self.trade[side];
+        }
+        let ids = {};
+        let cps = {};
+        this.marketChannel;
+
+        function tickEvent(data) {
+            cp = ids[data[0]];
+            let change = false
+
+            try {
+                if (self.tick[cp].price !== parseFloat(data[1]))
+                    change = true;
+                self.tick[cp].price = parseFloat(data[1]);
+                self.tick[cp].high = parseFloat(data[8]);
+                self.tick[cp].low = parseFloat(data[9]);
+                self.tick[cp].volume = parseFloat(data[5]).toFixed(3);
+                self.tick[cp].change = (parseFloat(data[4]) * 100).toFixed(3);
+                if (cp.includes(quote + '_'))
+                    updateTickerTable(cp, change);
+
+
+                trade = {
+                    'rate': self.tick[cp].price,
+                    'date': Date.now() / 1000
                 }
 
-                resolve(1002);
+                if (cp === quote + '_' + base) {
+                    if (trade.date > startTime + timeSpan) {
+
+                        data0.categoryData.push(start)
+                        data0.values.push([open, close, low, high])
+                        startTime = trade.date;
+                        start = timestampToDate(startTime);
+                        open = trade.rate;
+                        high = open;
+                        low = open;
+                    }
+
+
+                    if (trade.rate > high)
+                        high = trade.rate;
+                    else if (trade.rate < low)
+                        low = trade.rate;
+                    close = trade.rate;
+                }
+            } catch (err) {
+                console.log(err);
+            }
+        }
+
+        function tickInit() {
+            return new Promise(resolve => {
+                $.getJSON('https://poloniex.com/public?command=returnTicker', data => {
+                    let row;
+                    for (let d in data) {
+                        ids[data[d]['id']] = d;
+                        cps[d] = data[d]['id'];
+                        self.tick[d] = {
+                            'price': parseFloat(data[d].last),
+                            'volume': parseFloat(data[d].baseVolume).toFixed(3),
+                            'change': (parseFloat(data[d].percentChange) * 100).toFixed(3),
+                            'high': parseFloat(data[d].high24hr),
+                            'low': parseFloat(data[d].low24hr)
+                        };
+                    }
+                    resolve(1002);
+                })
             })
-        })
 
-    }
-
-    function tradeEvent(datas, cp) {
-        for (let i in datas) {
-            let data = datas[i];
-            if (data[0] === 'o') {
-                let side = data[1] ? 'bids' : 'asks';
-                let rate = parseFloat(data[2]).toString();
-                if (data[3] === '0.00000000') {
-                    delete self.trade[side][rate];
-                    removeTradeRow(side, rate);
-                } else {
-                    self.trade[side][rate] = parseFloat(data[3]);
-                    updateTradeTable(side, rate);
-                }
-
-            }
         }
+
+        function tradeEvent(datas, cp) {
+            for (let i in datas) {
+                let data = datas[i];
+                if (data[0] === 'o') {
+                    let side = data[1] ? 'bids' : 'asks';
+                    let rate = parseFloat(data[2]).toString();
+                    if (data[3] === '0.00000000') {
+                        delete self.trade[side][rate];
+                        removeTradeRow(side, rate);
+                    } else {
+                        self.trade[side][rate] = parseFloat(data[3]);
+                        updateTradeTable(side, rate);
+                    }
+
+                }
+            }
 
 
         //n = Object.keys(self.trade.asks).map(parseFloat);
@@ -143,8 +161,6 @@ poloniex = function() {
                     else self.trade.asks[parseFloat(rate).toString()] = parseFloat(data[a][rate]);
                 }
             }
-
-
             writeTradeTable('asks');
             writeTradeTable('bids');
             resolve();
@@ -155,6 +171,7 @@ poloniex = function() {
 
     this.webSockets_subscribe = channel => {
         let conn = self.conn
+
         if (conn.readyState === 1) {
             var params = {
                 command: "subscribe",
@@ -188,9 +205,10 @@ poloniex = function() {
         mySocket.onopen = function(e) {
 
             self.conn = e.target;
-            tickInit().then(writeTickerTable).then(()=>{
+
+            tickInit().then(t.webSockets_subscribe).then(t.webSockets_subscribe).then(writeTickerTable).then(()=>{
                 sortTable($('#tickerTable').get(0), 1, 0); //SortByPrice
-            }).then(self.webSockets_subscribe).then(self.webSockets_subscribe).then(drawTicker).then(() =>{
+            }).then(drawTicker).then(() =>{
                 $('#container').unblock();
             });
         }
@@ -247,10 +265,10 @@ exchange.start(); // websocket Start
 
 function writeTickerTable(e) {
     let row;
-    for (let pair in exchange.tick) {
+    for (let pair in exchange.tickes()) {
         if (pair.includes(quote + '_')) {
             coin = pair.replace(quote + '_', '');
-            row = "<tr class='tickTr' id=tickTable_" + pair + "><td class='column1' >" + coin + "</td><td class='column2'>" + exchange.tick[pair].price + "</td><td class='column3'>" + exchange.tick[pair].volume + "</td><td class='column4'>" + exchange.tick[pair].change + "</td></tr>"
+            row = "<tr class='tickTr' id=tickTable_" + pair + "><td class='column1' >" + coin + "</td><td class='column2'>" + exchange.tick(pair).price + "</td><td class='column3'>" + exchange.tick(pair).volume + "</td><td class='column4'>" + exchange.tick(pair).change + "</td></tr>"
             $('#tickerTable tbody').append(row);
         }
     }
@@ -260,7 +278,7 @@ function writeTickerTable(e) {
 // updata table when tick event
 function updateTickerTable(pair, c) {
     let coin = pair.replace(quote + '_', '');
-    let row = "<td class='column1'>" + coin + "</td><td class='column2'>" + exchange.tick[pair].price + "</td><td class='column3'>" + exchange.tick[pair].volume + "</td><td class='column4'>" + exchange.tick[pair].change + "</td>"
+    let row = "<td class='column1'>" + coin + "</td><td class='column2'>" + exchange.tick(pair).price + "</td><td class='column3'>" + exchange.tick(pair).volume + "</td><td class='column4'>" + exchange.tick(pair).change + "</td>"
     $('#tickTable_' + pair).html(row);
     if (c) {
         $('#tickTable_' + pair).addClass('color');
@@ -278,17 +296,16 @@ function writeTradeTable(side) {
     let rate;
     $('#' + side + 'Table tbody.data').html('');
     if (side === 'asks')
-        rates = Object.keys(exchange.trade.asks).map(parseFloat).sort((x, y) => {
+        rates = Object.keys(exchange.trade('asks')).map(parseFloat).sort((x, y) => {
             return x - y
         });
     else
-        rates = Object.keys(exchange.trade.bids).map(parseFloat).sort((x, y) => {
+        rates = Object.keys(exchange.trade('bids')).map(parseFloat).sort((x, y) => {
             return y - x
         });
-
     for (let index = 0; index <= tradeDisplayLimit && index < rates.length; index++) {
         let rate = rates[index].toString();
-        row = "<tr class='" + side + "Tr' id=" + rate.toString() + side + "><td class='column1' >" + rate + "</td><td class='column2'>" + exchange.trade[side][rate] + "</td><td class='column3'>" + exchange.trade[side][rate] * parseFloat(rate) + "</td><td class='column4'>" + exchange.trade[side][rate] + "</td></tr>";
+        row = "<tr class='" + side + "Tr' id=" + rate.toString() + side + "><td class='column1' >" + rate + "</td><td class='column2'>" + exchange.trade(side)[rate] + "</td><td class='column3'>" + exchange.trade(side)[rate] * parseFloat(rate) + "</td><td class='column4'>" + exchange.trade(side)[rate] + "</td></tr>";
         $('#' + side + 'Table tbody.data').append(row);
     }
 
@@ -298,7 +315,7 @@ function writeTradeTable(side) {
 
 function updateTradeTable(side, rate) {
     rate = rate.toString();
-    let row = "<td class='column1'>" + rate + "</td><td class='column2'>" + exchange.trade[side][rate] + "</td><td class='column3'>" + exchange.trade[side][rate] * parseFloat(rate) + "</td><td class='column4'>" + exchange.trade[side][rate] + "</td>"
+    let row = "<td class='column1'>" + rate + "</td><td class='column2'>" + exchange.trade(side)[rate] + "</td><td class='column3'>" + exchange.trade(side)[rate] * parseFloat(rate) + "</td><td class='column4'>" + exchange.trade(side)[rate] + "</td>"
     if ($('#' + rate.replace('.', '\\.') + side).html() === undefined) {
         $('#' + side + 'Table tbody.data tr:last').after("<tr class='" + side + "Tr' id=" + rate.toString() + side + ">" + row + '</tr>');
         if (side === 'asks')
@@ -376,23 +393,28 @@ function historyDataToKline(datas) {
     high = open;
     low = open;
     historydata = [];
+    let v = 0;
+    let i = 0;
     for (let trade of datas) {
 
         if (trade.date > startTime + timeSpan) {
-            historydata.push([start, open, close, low, high])
+            historydata.push([start, open, close, low, high]);
+            volume.push(v);
             startTime = trade.date;
             start = timestampToDate(startTime);
             open = trade.rate;
             high = open;
             low = open;
+            v = 0 ;
+            i++ ;
         }
-
 
         if (trade.rate > high)
             high = trade.rate;
         else if (trade.rate < low)
             low = trade.rate;
         close = trade.rate;
+        v += parseFloat(trade.amount)
 
     }
 
@@ -424,6 +446,7 @@ function timestampToDate(timestamp) {
 
 window.setInterval(function() {
     drawTicker();
+    drawTrader();
 }, 30000);
 
 
@@ -440,7 +463,6 @@ function drawTicker() {
             let upBorderColor = '#8A0000';
             let downColor = '#00da3c';
             let downBorderColor = '#008F28';
-
             function splitData(rawData) {
                 var categoryData = [];
                 var values = []
@@ -486,12 +508,20 @@ function drawTicker() {
                     data: ['Kline', 'MA5', 'MA10', 'MA20', 'MA30'],
                     left:'right'
                 },
-                grid: {
+                grid:[
+                {
                     left: '10%',
-                    right: '10%',
-                    bottom: '15%'
+                    right: '8%',
+                    height: '50%'
                 },
-                xAxis: {
+                {
+                    left: '10%',
+                    right: '8%',
+                    top: '63%',
+                    height: '16%'
+                }
+                ],
+                xAxis:[{
                     type: 'category',
                     data: data0.categoryData,
                     scale: true,
@@ -506,22 +536,47 @@ function drawTicker() {
                     min: 'dataMin',
                     max: 'dataMax'
                 },
-                yAxis: {
+                {
+                    type: 'category',
+                    gridIndex: 1,
+                    data: data0.categoryData,
+                    scale: true,
+                    boundaryGap : false,
+                    axisLine: {onZero: false},
+                    axisTick: {show: false},
+                    splitLine: {show: false},
+                    axisLabel: {show: false},
+                    splitNumber: 20,
+                    min: 'dataMin',
+                    max: 'dataMax'
+                }],
+                yAxis: [{
                     scale: true,
                     splitArea: {
                         show: true
                     }
                 },
+                {
+                    scale: true,
+                    gridIndex: 1,
+                    splitNumber: 2,
+                    axisLabel: {show: false},
+                    axisLine: {show: false},
+                    axisTick: {show: false},
+                    splitLine: {show: false}
+                }],
                 dataZoom: [{
                     type: 'inside',
-                    start: 50,
+                    xAxisIndex: [0, 1],
+                    start: 90,
                     end: 100
                 },
                 {
                     show: true,
+                    xAxisIndex: [0, 1],
                     type: 'slider',
                     y: '90%',
-                    start: 50,
+                    start: 90,
                     end: 100
                 }
                 ],
@@ -667,7 +722,13 @@ function drawTicker() {
                         }
                     }
                 },
-
+                {
+                    name: 'Volume',
+                    type: 'bar',
+                    xAxisIndex: 1,
+                    yAxisIndex: 1,
+                    data: volume
+                }
                 ]
             };
             if (tickerOption && typeof tickerOption === "object") {
@@ -808,7 +869,7 @@ window.onload = function() {
 /*Trader Chart Start */
 function drawTrader() {
     function formattraderData() {
-        let traders = [exchange.trade.asks, exchange.trade.bids]
+        let traders = [exchange.trade('asks'), exchange.trade('bids')]
         let asksRates = Object.keys(traders[0]).map(parseFloat).sort((x, y) => {
             return x - y
         });
@@ -956,7 +1017,7 @@ function drawTrader() {
     }
 }
 /*Trader Chart End */
-
+/*
 window.setInterval(function() {
     drawTrader();
-}, 5000);
+}, 5000);*/
