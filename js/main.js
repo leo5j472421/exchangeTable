@@ -204,15 +204,16 @@ poloniex = function() {
 
         const mySocket = new WebSocket(wsuri);
 
-        mySocket.onopen = function(e) {
+        mySocket.onopen = async function(e) {
 
             self.conn = e.target;
-
-            tickInit().then(t.webSockets_subscribe).then(t.webSockets_subscribe).then(writeTickerTable).then(() => {
-                sortTable($('#tickerTable').get(0), 1, 0); //SortByPrice
-            }).then(drawTicker).then(() => {
-                $('#container').unblock();
-            });
+            let channel = await tickInit()
+            channel = t.webSockets_subscribe(channel)
+            t.webSockets_subscribe(channel)
+            writeTickerTable();
+            sortTable($('#tickerTable').get(0), 1, 0); //SortByPrice
+            await drawTicker();
+            $('#container').unblock();
         }
 
         mySocket.onerror = function(e) {
@@ -221,7 +222,7 @@ poloniex = function() {
             console.log(e);
         };
 
-        mySocket.onmessage = function(e) {
+        mySocket.onmessage = async function(e) {
             data = JSON.parse(e.data);
             channel = data[0];
             var cp =
@@ -243,7 +244,8 @@ poloniex = function() {
                 if (data[1] === 0); // unsubscript
                 else if (data[2][0][0] === 'i') { // TradeInit
                     t.marketChannel = channel;
-                    tradeInit(data[2][0][1].orderBook, cp).then(drawTrader);
+                    await tradeInit(data[2][0][1].orderBook, cp)
+                    drawTrader() ;
                 }
                 // Trade init
             } // end if
@@ -387,40 +389,39 @@ function getHistoryData(pair) {
 function historyDataToKline(datas) {
     startTime = datas[0].date;
 //    startTime = startTime - startTime%60
-    start = timestampToDate(startTime);
-    open = datas[0].rate;
-    close = open;
-    high = open;
-    low = open;
-    volume = [];
-    historydata = [];
-    let v = 0;
-    let i = 0;
-    for (let trade of datas) {
+start = timestampToDate(startTime);
+open = datas[0].rate;
+close = open;
+high = open;
+low = open;
+volume = [];
+historydata = [];
+let v = 0;
+let i = 0;
+for (let trade of datas) {
 
-        if (trade.date > startTime + timeSpan) {
-            historydata.push([start, open, close, low, high]);
-            volume.push(v);
-            startTime = trade.date;
-            start = timestampToDate(startTime);
-            open = trade.rate;
-            high = open;
-            low = open;
-            v = 0;
-            i++;
-        }
-
-        if (trade.rate > high)
-            high = trade.rate;
-        else if (trade.rate < low)
-            low = trade.rate;
-        close = trade.rate;
-        v += parseFloat(trade.amount)
-
+    if (trade.date > startTime + timeSpan) {
+        historydata.push([start, open, close, low, high]);
+        volume.push(v);
+        startTime = trade.date;
+        start = timestampToDate(startTime);
+        open = trade.rate;
+        high = open;
+        low = open;
+        v = 0;
+        i++;
     }
 
-    console.log(volume)
-    historydata.push([start, open, close, low, high])
+    if (trade.rate > high)
+        high = trade.rate;
+    else if (trade.rate < low)
+        low = trade.rate;
+    close = trade.rate;
+    v += parseFloat(trade.amount)
+
+}
+
+historydata.push([start, open, close, low, high])
 
 }
 
@@ -453,311 +454,310 @@ window.setInterval(function() {
 
 
 function drawTicker() {
-    return new Promise(resolve => {
-        getHistoryData(quote + '_' + base).then(historyDataToKline).then(() => {
-            data0 = splitData(historydata);
-            let dom = document.getElementById("container");
-            let myChart = echarts.init(dom);
-            let app = {};
-            let tickerOption = null;
-            let upColor = '#ec0000';
-            let upBorderColor = '#8A0000';
-            let downColor = '#00da3c';
-            let downBorderColor = '#008F28';
+    return new Promise( async function (resolve) {
+        let hdatas = await getHistoryData(quote + '_' + base);
+        historyDataToKline(hdatas);
+        data0 = splitData(historydata);
+        let dom = document.getElementById("container");
+        let myChart = echarts.init(dom);
+        let app = {};
+        let tickerOption = null;
+        let upColor = '#ec0000';
+        let upBorderColor = '#8A0000';
+        let downColor = '#00da3c';
+        let downBorderColor = '#008F28';
 
-            function splitData(rawData) {
-                var categoryData = [];
-                var values = []
-                for (var i = 0; i < rawData.length; i++) {
-                    categoryData.push(rawData[i].splice(0, 1)[0]);
-                    values.push(rawData[i])
-                }
-                return {
-                    categoryData: categoryData,
-                    values: values
-                };
+        function splitData(rawData) {
+            var categoryData = [];
+            var values = []
+            for (var i = 0; i < rawData.length; i++) {
+                categoryData.push(rawData[i].splice(0, 1)[0]);
+                values.push(rawData[i])
             }
+            return {
+                categoryData: categoryData,
+                values: values
+            };
+        }
 
-            function calculateMA(day) {
-                var result = [];
-                let dayCount = (86400 / timeSpan) * day;
-                for (var i = 0, len = data0.values.length; i < len; i++) {
-                    if (i < dayCount) {
-                        result.push('-');
-                        continue;
-                    }
-                    var sum = 0;
-                    for (var j = 0; j < dayCount; j++) {
-                        sum += parseFloat(data0.values[i - j][1]);
-                    }
-
-                    result.push(sum / dayCount);
+        function calculateMA(day) {
+            var result = [];
+            let dayCount = (86400 / timeSpan) * day;
+            for (var i = 0, len = data0.values.length; i < len; i++) {
+                if (i < dayCount) {
+                    result.push('-');
+                    continue;
                 }
-                return result;
+                var sum = 0;
+                for (var j = 0; j < dayCount; j++) {
+                    sum += parseFloat(data0.values[i - j][1]);
+                }
+
+                result.push(sum / dayCount);
             }
-            tickerOption = {
-                title: {
-                    text: quote + '_' + base,
-                    left: 'center'
+            return result;
+        }
+        tickerOption = {
+            title: {
+                text: quote + '_' + base,
+                left: 'center'
+            },
+            tooltip: {
+                trigger: 'axis',
+                axisPointer: {
+                    type: 'cross'
+                }
+            },
+            legend: {
+                data: ['Kline', 'MA5', 'MA10', 'MA20', 'MA30'],
+                left: 'right'
+            },
+            grid: [{
+                left: '10%',
+                right: '8%',
+                height: '50%'
+            },
+            {
+                left: '10%',
+                right: '8%',
+                top: '63%',
+                height: '16%'
+            }
+            ],
+            xAxis: [{
+                type: 'category',
+                data: data0.categoryData,
+                scale: true,
+                boundaryGap: false,
+                axisLine: {
+                    onZero: false
                 },
-                tooltip: {
-                    trigger: 'axis',
-                    axisPointer: {
-                        type: 'cross'
+                splitLine: {
+                    show: false
+                },
+                splitNumber: 20,
+                min: 'dataMin',
+                max: 'dataMax'
+            },
+            {
+                type: 'category',
+                gridIndex: 1,
+                data: data0.categoryData,
+                scale: true,
+                boundaryGap: false,
+                axisLine: {
+                    onZero: false
+                },
+                axisTick: {
+                    show: false
+                },
+                splitLine: {
+                    show: false
+                },
+                axisLabel: {
+                    show: false
+                },
+                splitNumber: 20,
+                min: 'dataMin',
+                max: 'dataMax'
+            }
+            ],
+            yAxis: [{
+                scale: true,
+                splitArea: {
+                    show: true
+                }
+            },
+            {
+                scale: true,
+                gridIndex: 1,
+                splitNumber: 2,
+                axisLabel: {
+                    show: false
+                },
+                axisLine: {
+                    show: false
+                },
+                axisTick: {
+                    show: false
+                },
+                splitLine: {
+                    show: false
+                }
+            }
+            ],
+            dataZoom: [{
+                type: 'inside',
+                xAxisIndex: [0, 1],
+                start: 90,
+                end: 100
+            },
+            {
+                show: true,
+                xAxisIndex: [0, 1],
+                type: 'slider',
+                y: '90%',
+                start: 90,
+                end: 100
+            }
+            ],
+            series: [{
+                name: 'Kline',
+                type: 'candlestick',
+                data: data0.values,
+                itemStyle: {
+                    normal: {
+                        color: upColor,
+                        color0: downColor,
+                        borderColor: upBorderColor,
+                        borderColor0: downBorderColor
                     }
                 },
-                legend: {
-                    data: ['Kline', 'MA5', 'MA10', 'MA20', 'MA30'],
-                    left: 'right'
-                },
-                grid: [{
-                    left: '10%',
-                    right: '8%',
-                    height: '50%'
-                },
-                {
-                    left: '10%',
-                    right: '8%',
-                    top: '63%',
-                    height: '16%'
-                }
-                ],
-                xAxis: [{
-                    type: 'category',
-                    data: data0.categoryData,
-                    scale: true,
-                    boundaryGap: false,
-                    axisLine: {
-                        onZero: false
-                    },
-                    splitLine: {
-                        show: false
-                    },
-                    splitNumber: 20,
-                    min: 'dataMin',
-                    max: 'dataMax'
-                },
-                {
-                    type: 'category',
-                    gridIndex: 1,
-                    data: data0.categoryData,
-                    scale: true,
-                    boundaryGap: false,
-                    axisLine: {
-                        onZero: false
-                    },
-                    axisTick: {
-                        show: false
-                    },
-                    splitLine: {
-                        show: false
-                    },
-                    axisLabel: {
-                        show: false
-                    },
-                    splitNumber: 20,
-                    min: 'dataMin',
-                    max: 'dataMax'
-                }
-                ],
-                yAxis: [{
-                    scale: true,
-                    splitArea: {
-                        show: true
-                    }
-                },
-                {
-                    scale: true,
-                    gridIndex: 1,
-                    splitNumber: 2,
-                    axisLabel: {
-                        show: false
-                    },
-                    axisLine: {
-                        show: false
-                    },
-                    axisTick: {
-                        show: false
-                    },
-                    splitLine: {
-                        show: false
-                    }
-                }
-                ],
-                dataZoom: [{
-                    type: 'inside',
-                    xAxisIndex: [0, 1],
-                    start: 90,
-                    end: 100
-                },
-                {
-                    show: true,
-                    xAxisIndex: [0, 1],
-                    type: 'slider',
-                    y: '90%',
-                    start: 90,
-                    end: 100
-                }
-                ],
-                series: [{
-                    name: 'Kline',
-                    type: 'candlestick',
-                    data: data0.values,
-                    itemStyle: {
+                markPoint: {
+                    label: {
                         normal: {
-                            color: upColor,
-                            color0: downColor,
-                            borderColor: upBorderColor,
-                            borderColor0: downBorderColor
+                            formatter: function(param) {
+                                return param != null ? param.value.toFixed(3) : '';
+                            }
                         }
                     },
-                    markPoint: {
+                    data: [{
+                        name: 'XX标点',
+                        coord: ['2013/5/31', 2300],
+                        value: 2300,
+                        itemStyle: {
+                            normal: {
+                                color: 'rgb(41,60,85)'
+                            }
+                        }
+                    },
+                    {
+                        name: 'highest value',
+                        type: 'max',
+                        valueDim: 'highest'
+                    },
+                    {
+                        name: 'lowest value',
+                        type: 'min',
+                        valueDim: 'lowest'
+                    },
+                    {
+                        name: 'average value on close',
+                        type: 'average',
+                        valueDim: 'close'
+                    }
+                    ],
+                    tooltip: {
+                        formatter: function(param) {
+                            return param.name + '<br>' + (param.data.coord || '');
+                        }
+                    }
+                },
+                markLine: {
+                    symbol: ['none', 'none'],
+                    data: [
+                    [{
+                        name: 'from lowest to highest',
+                        type: 'min',
+                        valueDim: 'lowest',
+                        symbol: 'circle',
+                        symbolSize: 10,
                         label: {
                             normal: {
-                                formatter: function(param) {
-                                    return param != null ? param.value.toFixed(3) : '';
-                                }
-                            }
-                        },
-                        data: [{
-                            name: 'XX标点',
-                            coord: ['2013/5/31', 2300],
-                            value: 2300,
-                            itemStyle: {
-                                normal: {
-                                    color: 'rgb(41,60,85)'
-                                }
-                            }
-                        },
-                        {
-                            name: 'highest value',
-                            type: 'max',
-                            valueDim: 'highest'
-                        },
-                        {
-                            name: 'lowest value',
-                            type: 'min',
-                            valueDim: 'lowest'
-                        },
-                        {
-                            name: 'average value on close',
-                            type: 'average',
-                            valueDim: 'close'
-                        }
-                        ],
-                        tooltip: {
-                            formatter: function(param) {
-                                return param.name + '<br>' + (param.data.coord || '');
+                                show: false
+                            },
+                            emphasis: {
+                                show: false
                             }
                         }
                     },
-                    markLine: {
-                        symbol: ['none', 'none'],
-                        data: [
-                        [{
-                            name: 'from lowest to highest',
-                            type: 'min',
-                            valueDim: 'lowest',
-                            symbol: 'circle',
-                            symbolSize: 10,
-                            label: {
-                                normal: {
-                                    show: false
-                                },
-                                emphasis: {
-                                    show: false
-                                }
-                            }
-                        },
-                        {
-                            type: 'max',
-                            valueDim: 'highest',
-                            symbol: 'circle',
-                            symbolSize: 10,
-                            label: {
-                                normal: {
-                                    show: false
-                                },
-                                emphasis: {
-                                    show: false
-                                }
+                    {
+                        type: 'max',
+                        valueDim: 'highest',
+                        symbol: 'circle',
+                        symbolSize: 10,
+                        label: {
+                            normal: {
+                                show: false
+                            },
+                            emphasis: {
+                                show: false
                             }
                         }
-                        ],
-                        {
-                            name: 'min line on close',
-                            type: 'min',
-                            valueDim: 'close'
-                        },
-                        {
-                            name: 'max line on close',
-                            type: 'max',
-                            valueDim: 'close'
-                        }
-                        ]
                     }
-                },
-                {
-                    name: 'MA5',
-                    type: 'line',
-                    data: calculateMA(5),
-                    smooth: true,
-                    lineStyle: {
-                        normal: {
-                            opacity: 0.5
-                        }
+                    ],
+                    {
+                        name: 'min line on close',
+                        type: 'min',
+                        valueDim: 'close'
+                    },
+                    {
+                        name: 'max line on close',
+                        type: 'max',
+                        valueDim: 'close'
                     }
-                },
-                {
-                    name: 'MA10',
-                    type: 'line',
-                    data: calculateMA(10),
-                    smooth: true,
-                    lineStyle: {
-                        normal: {
-                            opacity: 0.5
-                        }
-                    }
-                },
-                {
-                    name: 'MA20',
-                    type: 'line',
-                    data: calculateMA(20),
-                    smooth: true,
-                    lineStyle: {
-                        normal: {
-                            opacity: 0.5
-                        }
-                    }
-                },
-                {
-                    name: 'MA30',
-                    type: 'line',
-                    data: calculateMA(30),
-                    smooth: true,
-                    lineStyle: {
-                        normal: {
-                            opacity: 0.5
-                        }
-                    }
-                },
-                {
-                    name: 'Volume',
-                    type: 'bar',
-                    xAxisIndex: 1,
-                    yAxisIndex: 1,
-                    data: volume
+                    ]
                 }
-                ]
-            };
-            if (tickerOption && typeof tickerOption === "object") {
-                myChart.setOption(tickerOption, true);
-                resolve();
+            },
+            {
+                name: 'MA5',
+                type: 'line',
+                data: calculateMA(5),
+                smooth: true,
+                lineStyle: {
+                    normal: {
+                        opacity: 0.5
+                    }
+                }
+            },
+            {
+                name: 'MA10',
+                type: 'line',
+                data: calculateMA(10),
+                smooth: true,
+                lineStyle: {
+                    normal: {
+                        opacity: 0.5
+                    }
+                }
+            },
+            {
+                name: 'MA20',
+                type: 'line',
+                data: calculateMA(20),
+                smooth: true,
+                lineStyle: {
+                    normal: {
+                        opacity: 0.5
+                    }
+                }
+            },
+            {
+                name: 'MA30',
+                type: 'line',
+                data: calculateMA(30),
+                smooth: true,
+                lineStyle: {
+                    normal: {
+                        opacity: 0.5
+                    }
+                }
+            },
+            {
+                name: 'Volume',
+                type: 'bar',
+                xAxisIndex: 1,
+                yAxisIndex: 1,
+                data: volume
             }
+            ]
+        };
+        if (tickerOption && typeof tickerOption === "object") {
+            myChart.setOption(tickerOption, true);
+            resolve();
+        }
 
-        });
-
-})
+    });
 
 }
 // Echart Candlestick End
@@ -765,7 +765,7 @@ function drawTicker() {
 
 
 //reDraw Chart and re Write asks bids table When tr been click
-$('#tickerTable').on('click', '.tickTr', (e) => {
+$('#tickerTable').on('click', '.tickTr', async (e) => {
     let target = e.target.tagName.toLowerCase() === 'td' ? $(e.target).parent() : $(e.target);
     timeSpan = 60 ;
     base = target.attr('id').replace('tickTable_' + quote + '_', '');
@@ -783,9 +783,9 @@ $('#tickerTable').on('click', '.tickTr', (e) => {
             backgroundColor: 'transparent'
         }
     });
-    drawTicker().then(() => {
+
+    await drawTicker()
         $('#container').unblock();
-    });
 });
 
 
