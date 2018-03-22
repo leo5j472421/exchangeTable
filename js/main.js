@@ -2,12 +2,14 @@ const wsuri = "wss://api2.poloniex.com"; // ws address
 
 
 // add python like string format 
+/*
 String.prototype.format = function() {
     var args = [].slice.call(arguments);
     return this.replace(/(\{\d+\})/g, function(a) {
         return args[+(a.substr(1, a.length - 2)) || 0];
     });
 };
+*/
 
 // ticker Chart Loading
 $('#container').block({
@@ -178,7 +180,7 @@ poloniex = function() {
                 channel: channel
             };
             conn.send(JSON.stringify(params));
-            console.log('Subscribe Channel {0}'.format(channel));
+            console.log(`Subscribe Channel ${channel}` );
             return quote + '_' + base
         }
     }
@@ -192,7 +194,7 @@ poloniex = function() {
                 command: "unsubscribe",
                 channel: channel
             }));
-            console.log('Unsubscribe Channel {0}'.format(channel));
+            console.log(`Unsubscribe Channel ${channel}`);
             if ('subscriptions' in conn)
                 delete conn.subscriptions[channel];
         }
@@ -350,7 +352,7 @@ function getHistoryData(pair) {
         let starttime = (Date.now() / 1000) - 86400 * 30
         let datas = []
         try {
-            $.getJSON('https://poloniex.com/public?command=returnTradeHistory&currencyPair={0}&start={1}'.format(pair, starttime), data => {
+            $.getJSON(`https://poloniex.com/public?command=returnTradeHistory&currencyPair=${pair}&start=${starttime}`, data => {
                 for (let trade of data) {
                     trade.date = new Date(trade.date).getTime() / 1000;
                     datas.push(trade)
@@ -364,7 +366,7 @@ function getHistoryData(pair) {
             console.log(err)
             alert('wait');
             setTimeout(() => {
-                $.getJSON('https://poloniex.com/public?command=returnTradeHistory&currencyPair={0}&start={1}'.format(pair, starttime), data => {
+                $.getJSON(`https://poloniex.com/public?command=returnTradeHistory&currencyPair=${pair}&start=${starttime}`, data => {
                     for (let trade of data) {
                         trade.date = new Date(trade.date).getTime() / 1000;
                         datas.push(trade)
@@ -384,11 +386,13 @@ function getHistoryData(pair) {
 // format orginal data to Echarts candlestick data
 function historyDataToKline(datas) {
     startTime = datas[0].date;
+//    startTime = startTime - startTime%60
     start = timestampToDate(startTime);
     open = datas[0].rate;
     close = open;
     high = open;
     low = open;
+    volume = [];
     historydata = [];
     let v = 0;
     let i = 0;
@@ -415,7 +419,7 @@ function historyDataToKline(datas) {
 
     }
 
-
+    console.log(volume)
     historydata.push([start, open, close, low, high])
 
 }
@@ -433,8 +437,8 @@ function timestampToDate(timestamp) {
         return num;
     }
     let rDate = new Date(parseInt(timestamp) * 1000);
-    let date = rDate.getUTCFullYear() + "-" + pad(rDate.getUTCMonth() + 1, 2) + "-" + pad(rDate.getUTCDate(), 2);
-    let time = pad(rDate.getUTCHours(), 2) + ":" + pad(rDate.getMinutes(), 2); // + ":" + pad(rDate.getSeconds(), 2);
+    let date = rDate.getFullYear() + "-" + pad(rDate.getMonth() + 1, 2) + "-" + pad(rDate.getDate(), 2);
+    let time = pad(rDate.getHours(), 2) + ":" + pad(rDate.getMinutes(), 2); // + ":" + pad(rDate.getSeconds(), 2);
     return date + ' ' + time;
 
 }
@@ -763,13 +767,14 @@ function drawTicker() {
 //reDraw Chart and re Write asks bids table When tr been click
 $('#tickerTable').on('click', '.tickTr', (e) => {
     let target = e.target.tagName.toLowerCase() === 'td' ? $(e.target).parent() : $(e.target);
+    timeSpan = 60 ;
     base = target.attr('id').replace('tickTable_' + quote + '_', '');
     exchange.webSockets_unsubscribe(exchange.marketChannel);
     $('#asksTable tbody.data').html('');
     $('#bidsTable tbody.data').html('');
     $('.traderTable thead tr th.column2').html(base);
     $('.traderTable thead tr th.column3').html(quote);
-    $('.traderTable thead tr th.column4').html('Sum({0})'.format(quote));
+    $('.traderTable thead tr th.column4').html(`Sum(${quote})`);
     exchange.webSockets_subscribe(quote + '_' + base);
     $('#container').block({
         message: '<img src="img/loading.gif" />',
