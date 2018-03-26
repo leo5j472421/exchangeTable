@@ -25,21 +25,28 @@
             <div class="wrap-table100">
                 <div class="table100">
                     <div class="btn-group btn-quote">
-                        <button>BTC</button>
-                        <button>ETH</button>
-                        <button>XMR</button>
-                        <button class='btn-choose'>USDT</button>
+                        <button v-on:click="quoteClick">BTC</button>
+                        <button v-on:click="quoteClick">ETH</button>
+                        <button v-on:click="quoteClick">XMR</button>
+                        <button v-on:click="quoteClick" class='btn-choose'>USDT</button>
                     </div>
-                    <table id="tickerTable"  >
+                    <table id="tickerTable">
                         <thead>
                             <tr class="table100-head">
-                                <th class="column1">Coin</th>
-                                <th class="column2">Price</th>
-                                <th class="column3">Volume</th>
-                                <th class="column4">Change</th>
+                                <th class="column1" v-on:click='sort'>Coin</th>
+                                <th class="column2" v-on:click='sort'>Price</th>
+                                <th class="column3" v-on:click='sort'>Volume</th>
+                                <th class="column4" v-on:click='sort'>Change</th>
                             </tr>
                         </thead>
                         <tbody>
+                            <tr class="tickTr" v-on:click='changePair' v-bind:id="tdId(pair)" v-for="(ticker , pair) in tickers" v-if="pair.includes(quote+'_')" >
+                                <td class="column1">{{pair.replace(quote+'_','')}}</td>
+                                <td class="column2" v-on:click='test'>{{ticker.price}}</td>
+                                <td class="column3">{{ticker.volume}}</td>
+                                <td class="column4">{{ticker.change}}</td>
+                            </tr>
+
                         </tbody>
                     </table>
                 </div>
@@ -98,6 +105,8 @@
 <script src="js/jquery.blockUI.js"></script> 
 <!--Echart js-->
 <script type="text/javascript" src="http://echarts.baidu.com/gallery/vendors/echarts/echarts.min.js"></script>
+<!--Vuejs-->
+<script src="https://unpkg.com/vue"></script>
 <!--Poloniex Websocket-->
 <script src="js/main.js"></script>
 
