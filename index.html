@@ -7,10 +7,6 @@
     <link rel="Shortcut Icon" type="image/x-icon" href="img/icon.jpg" />
     <link rel="stylesheet" type="text/css" href="css/bootstrap.min.css">
     <link rel="stylesheet" type="text/css" href="fonts/font-awesome-4.7.0/css/font-awesome.min.css">
-    <link rel="stylesheet" type="text/css" href="css/animate.css">
-    <link rel="stylesheet" type="text/css" href="css/select2.min.css">
-    <link rel="stylesheet" type="text/css" href="css/perfect-scrollbar.css">
-    <link rel="stylesheet" type="text/css" href="css/util.css">
     <link rel="stylesheet" type="text/css" href="css/color.css">
     <link rel="stylesheet" type="text/css" href="css/main.css">
     <link rel="stylesheet" type="text/css" href="assets/animate.css">
@@ -21,37 +17,65 @@
 
 
     <div class="limiter">
-        <div class="container-table100">
-            <div class="wrap-table100">
-                <div class="table100">
-                    <div class="btn-group btn-quote">
-                        <button v-on:click="quoteClick">BTC</button>
-                        <button v-on:click="quoteClick">ETH</button>
-                        <button v-on:click="quoteClick">XMR</button>
-                        <button v-on:click="quoteClick" class='btn-choose'>USDT</button>
-                    </div>
-                    <table id="tickerTable">
-                        <thead>
-                            <tr class="table100-head">
-                                <th class="column1" v-on:click='sort'>Coin</th>
-                                <th class="column2" v-on:click='sort'>Price</th>
-                                <th class="column3" v-on:click='sort'>Volume</th>
-                                <th class="column4" v-on:click='sort'>Change</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr class="tickTr" v-on:click='changePair' v-bind:id="tdId(pair)" v-for="(ticker , pair) in tickers" v-if="pair.includes(quote+'_')" >
-                                <td class="column1">{{pair.replace(quote+'_','')}}</td>
-                                <td class="column2" v-on:click='test'>{{ticker.price}}</td>
-                                <td class="column3">{{ticker.volume}}</td>
-                                <td class="column4">{{ticker.change}}</td>
-                            </tr>
 
-                        </tbody>
-                    </table>
+
+
+        <div class="row">
+            <div class="col-md-4"></div>
+            <div class="col-md-4">
+                <div class="btn-group btn-quote">
+                    <button>BTC</button>
+                    <button>ETH</button>
+                    <button>XMR</button>
+                    <button class='btn-choose'>USDT</button>
+
                 </div>
+                <table id="tickerTable"  >
+                    <thead>
+                        <tr class="table100-head">
+                            <th class="column1">Coin</th>
+                            <th class="column2">Price</th>
+                            <th class="column3">Volume</th>
+                            <th class="column4">Change</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
             </div>
+            <div class="col-md-4"></div>
         </div>
+
+        <br><br><br>
+        <br><br><br>
+        <div class="row">
+            <div class="col-md-4"></div>
+            <div class="col-md-4">
+                <table id="comparetable"  >
+                    <thead>
+                        <tr class="table100-head">
+                            <th class="column1">Currency Pair</th>
+                            <th class="column2">Price A</th>
+                            <th class="column3">Change A</th>
+                            <th class="column4">Price B</th>
+                            <th class="column5">Change B</th>
+
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
+            <div class="col-md-4"></div>
+        </div>
+
+
+
+
+        <br><br><br>
+
+        
+
     </div>
 
     <div id="container" style="height: 100%"></div>
@@ -64,49 +88,72 @@
   </div>
 
   <div>
-    <table id="asksTable" class='traderTable'>
-        <thead>
-            <tr class="table100-head">
-                <th class="column1">Price</th>
-                <th class="column2">ETH</th>
-                <th class="column3">USDT</th>
-                <th class="column4">Sum(USDT)</th>
-            </tr>
-        </thead>
-        <tbody class='data'>
-        </tbody>
-        <tbody class='loadMore'>
-            <td>Load 100 More</td>
-        </tbody>
-    </table>
 
-    <table id="bidsTable" class='traderTable'>
-        <thead>
-            <tr class="table100-head">
-                <th class="column1">Price</th>
-                <th class="column2">ETH</th>
-                <th class="column3">USDT</th>
-                <th class="column4">Sum(USDT)</th>
-            </tr>
-        </thead>
-        <tbody class='data'>
-        </tbody>
-        <tbody class='loadMore'>
-            <td>Load 100 More</td>
-        </tbody>
-    </table>
+    <div class="row">
+        <div class="col-md-4"></div>
+        <div class="col-md-4">
+            <table id="asksTable" class='traderTable'>
+                <thead>
+                    <tr class="table100-head">
+                        <th class="column1">Price</th>
+                        <th class="column2">ETH</th>
+                        <th class="column3">USDT</th>
+                        <th class="column4">Sum(USDT)</th>
+                    </tr>
+                </thead>
+                <tbody class='data'>
+                </tbody>
+                <tbody class='loadMore'>
+                    <td>Load 100 More</td>
+                </tbody>
+            </table>
+        </div>
+        <div class="col-md-4"></div>
+    </div>
+
+
+
+
+    <br><br><br>
+
+
+    <div class="row">
+        <div class="col-md-4"></div>
+        <div class="col-md-4">
+         <table id="bidsTable" class='traderTable'>
+            <thead>
+                <tr class="table100-head">
+                    <th class="column1">Price</th>
+                    <th class="column2">ETH</th>
+                    <th class="column3">USDT</th>
+                    <th class="column4">Sum(USDT)</th>
+                </tr>
+            </thead>
+            <tbody class='data'>
+            </tbody>
+            <tbody class='loadMore'>
+                <td>Load 100 More</td>
+            </tbody>
+        </table>
+    </div>
+    <div class="col-md-4"></div>
 </div>
 
-<div id="tradeChart" style="height: 100%"></div>
+
+
+</div>
+<br><br><br><br><br><br><br><br>
+<div id="tradeChart" style="height: 100%"></div>    <!--Market Depth Chart-->
 
 </body>
 <script src="js/jquery-3.3.1.min.js"></script>
 <!--Block admintion-->
 <script src="js/jquery.blockUI.js"></script> 
 <!--Echart js-->
-<script type="text/javascript" src="http://echarts.baidu.com/gallery/vendors/echarts/echarts.min.js"></script>
-<!--Vuejs-->
-<script src="https://unpkg.com/vue"></script>
+
+<script type="text/javascript" src="https://echarts.baidu.com/gallery/vendors/echarts/echarts.min.js"></script>
+<!--pako-->
+<script type="text/javascript" src="https://cdn.jsdelivr.net/pako/1.0.3/pako.min.js"></script> 
 <!--Poloniex Websocket-->
 <script src="js/main.js"></script>
 

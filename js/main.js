@@ -34,7 +34,150 @@ var base = 'ETH';
 var quote = 'USDT';
 var tradeDisplayLimit = 50;
 var volume = [];
-var tickVue;
+
+var currencyPairs = ['BTC_USDT','ETH_USDT','LTC_USDT','BCH_USDT']
+
+
+bitfinex = function(currencyPairs) {
+    this.cp = currencyPairs;
+    const exchangeName = 'Bitfinex';
+    let pairNameMap = {};
+    let symbol2pair = {};
+
+    for ( let cp of currencyPairs ){
+        pairNameMap[cp] = `t${cp.replace('USDT','USD').replace('_','')}`;
+        symbol2pair[`t${cp.replace('USDT','USD').replace('_','')}`] = cp;
+    }
+
+
+    let id2symbol={};
+    const cps = currencyPairs.map(cp => pairNameMap[cp]);
+    const w = new WebSocket('wss://api.bitfinex.com/ws/2');
+    let tickinit = false;
+    let traderinit = false;
+    // store info
+    let pairInfos = cps.reduce((map, obj) => {
+        map[obj] = {
+            asks: {},
+            bids: {}
+        };
+        return map;
+    }, {});
+
+    let id2pair = {};
+
+
+    // subscribing
+    w.onopen = () => {
+        cps.forEach(cp => {
+            w.send(JSON.stringify({
+                event: 'subscribe',
+                channel: 'ticker',
+                symbol: cp
+            }));
+            w.send(JSON.stringify({
+                event: 'subscribe',
+                channel: 'book',
+                symbol: cp
+            }));
+        });
+    }
+
+
+    // parsing
+    w.onmessage =  e => {
+        let data = JSON.parse(e.data);
+        // heartbeat, snapshot, update
+        if (data instanceof Array) {
+            if (data[1] === 'hb') return;
+
+            switch (id2pair[data[0]].channel) {
+                case 'ticker':
+                Object.assign(id2pair[data[0]].pair, {            // tickerEvent
+                    price: data[1][6],
+                    change: (data[1][5]*100).toFixed(3),
+                    volume: data[1][7]
+                });
+                if ( currencyPairs.includes(symbol2pair[id2symbol[data[0]]]))
+                    updateCompareTable(symbol2pair[id2symbol[data[0]]],true) ;
+                break;
+                case 'book':
+                    if (data[1][0] instanceof Array) {  // receive snapshot   //traderInit
+                        data[1].forEach(record => {
+                            let price = record[0],
+                            amount = record[2];
+                            if (amount >= 0)
+                                id2pair[data[0]].pair.bids[price] = Math.abs(amount);
+                            else
+                                id2pair[data[0]].pair.asks[price] = Math.abs(amount);
+                        });
+                    }
+                    else {  // receive update
+                        let price = data[1][0],
+                        count = data[1][1],
+                        amount = data[1][2];
+                        if (count > 0) {  // add or update the price level
+                            if (amount >= 0)
+                                id2pair[data[0]].pair.bids[price] = Math.abs(amount);
+                            else
+                                id2pair[data[0]].pair.asks[price] = Math.abs(amount);
+                        }
+                        else if (count == 0) {  // delete the price level
+                            let orderFound = true;
+                            if (amount >= 0) {
+                                if (id2pair[data[0]].pair.bids[price])
+                                    delete id2pair[data[0]].pair.bids[price];
+                                else
+                                    orderFound = false;
+                            }
+                            else {
+                                if (id2pair[data[0]].pair.asks[price])
+                                    delete id2pair[data[0]].pair.asks[price];
+                                else
+                                    orderFound = false;
+                            }
+                            if (!orderFound) {
+                                console.error('Book delete failed, side not found.');
+                            }
+                        }
+                    }
+                    break;
+                }
+            }
+
+        // subscribed Success
+        else if (data instanceof Object) {
+            if (data.event === 'subscribed') {
+                id2symbol[data.chanId] = data.symbol;
+                id2pair[data.chanId] = {
+                    channel: data.channel,
+                    pair: pairInfos[data.symbol]
+                };
+            }
+            else if (data.event === 'error') {
+            }
+        }
+    }
+
+
+    // public
+    this.tick = (currencyPair) => {
+        let pairInfo = pairInfos[pairNameMap[currencyPair]];
+        return {
+            price: pairInfo.price,
+            change: pairInfo.change,
+            volume: pairInfo.volume
+        };
+    };
+    this.trader = (currencyPair) => {
+        let pairInfo = pairInfos[pairNameMap[currencyPair]];
+        return {
+            asks: pairInfo.asks,
+            bids: pairInfo.bids
+        };
+    };
+};
+
 poloniex = function() {
     let t = this;
     let self = {
@@ -44,12 +187,11 @@ poloniex = function() {
             'bids': {}
         }
     };
-    /*this.tick = {};
-    this.trade = {
-        'asks': {},
-        'bids': {}
-    };*/
 
+    function reserve(str){
+        s = str.split('_');
+        return `${s[1]}_${s[0]}`;
+    }
     this.tick = cp => {
         return self.tick[cp];
     }
@@ -78,8 +220,11 @@ poloniex = function() {
             self.tick[cp].low = parseFloat(data[9]);
             self.tick[cp].volume = parseFloat(data[5]).toFixed(3);
             self.tick[cp].change = (parseFloat(data[4]) * 100).toFixed(3);
-            if (cp.includes(quote + '_'))
+            if (cp.includes('_'+quote)){
                 updateTickerTable(cp, change);
+                if ( currencyPairs.includes(cp))
+                    updateCompareTable(cp, change);
+            }
 
 
             trade = {
@@ -116,9 +261,9 @@ poloniex = function() {
             $.getJSON('https://poloniex.com/public?command=returnTicker', data => {
                 let row;
                 for (let d in data) {
-                    ids[data[d]['id']] = d;
-                    cps[d] = data[d]['id'];
-                    self.tick[d] = {
+                    ids[data[d]['id']] = reserve(d);
+                    cps[reserve(d)] = data[d]['id'];
+                    self.tick[reserve(d)] = {
                         'price': parseFloat(data[d].last),
                         'volume': parseFloat(data[d].baseVolume).toFixed(3),
                         'change': (parseFloat(data[d].percentChange) * 100).toFixed(3),
@@ -126,7 +271,6 @@ poloniex = function() {
                         'low': parseFloat(data[d].low24hr)
                     };
                 }
-
                 resolve();
             })
         })
@@ -146,15 +290,13 @@ poloniex = function() {
                 } else {
                     self.trade[side][rate] = parseFloat(data[3]);
                     updateTradeTable(side, rate);
+
                 }
                 
 
             }
         }
 
-
-        //n = Object.keys(self.trade.asks).map(parseFloat);
-        //console.log(Math.min(...n));
     }
 
     function tradeInit(data, cp) {
@@ -290,11 +432,11 @@ poloniex = function() {
         mySocket.onopen = async function(e) {
             self.conn = e.target;
             await tickInit()
-            t.webSockets_subscribe(1002)
-            t.webSockets_subscribe(quote + '_' + base)
-            tickVue = creatTickerVue();
-            //writeTickerTable();
-            console.log($('#tickerTable').get(0));
+            channel = t.webSockets_subscribe(1002)
+            t.webSockets_subscribe('USDT_ETH')
+            writeTickerTable();
+            writeCompareTable();
+
             sortTable($('#tickerTable').get(0), 1, 0); //SortByPrice
             await drawTicker();
             $('#container').unblock();
@@ -324,7 +466,6 @@ poloniex = function() {
                     'asks': {},
                     'bids': {}
                 }
-
                 if (data[1] === 0); // unsubscript
                 else if (data[2][0][0] === 'i') { // TradeInit
                     t.marketChannel = channel;
@@ -345,26 +486,52 @@ poloniex = function() {
 };
 
 const exchange = new poloniex();
+const exchange1 = new bitfinex(currencyPairs);
 exchange.start(); // websocket Start
+
+
+
+function writeCompareTable(){
+    let row ;
+    for ( let cp of currencyPairs ){
+     row = "<tr class='tickTr' id=compareTable_" + cp + "><td class='column1' >" + cp.replace('_USDT','') + "</td><td class='column2'>" + exchange.tick(cp).price + "</td><td class='column3'>" + exchange.tick(cp).change + " %</td><td class='column2'>" + exchange1.tick(cp).price + "</td><td class='column3'>" + exchange1.tick(cp).change + " %</td></tr>"
+     $('#comparetable tbody').append(row);
+ }
+}
 
 
 function writeTickerTable(e) {
     let row;
     for (let pair in exchange.tickes()) {
-        if (pair.includes(quote + '_')) {
-            coin = pair.replace(quote + '_', '');
-            row = "<tr class='tickTr' id=tickTable_" + pair + "><td class='column1' >" + coin + "</td><td class='column2'>" + exchange.tick(pair).price + "</td><td class='column3'>" + exchange.tick(pair).volume + "</td><td class='column4'>" + exchange.tick(pair).change + "</td></tr>"
+
+        if (pair.includes('_'+quote )) {
+            coin = pair.replace('_'+quote , '');
+            row = "<tr class='tickTr' id=tickTable_" + pair + "><td class='column1' >" + coin + "</td><td class='column2'>" + exchange.tick(pair).price + "</td><td class='column3'>" + exchange.tick(pair).volume + "</td><td class='column4'>" + exchange.tick(pair).change + " %</td></tr>"
             $('#tickerTable tbody').append(row);
         }
     }
     return e
 }
 
+function updateCompareTable(pair,c){
+    let row = "<tr class='tickTr' id=tickTable_" + pair + "><td class='column1' >" + pair.replace('_USDT','') + "</td><td class='column2'>" + exchange.tick(pair).price + "</td><td class='column3'>" + exchange.tick(pair).change + " %</td><td class='column2'>" + exchange1.tick(pair).price + "</td><td class='column3'>" + exchange1.tick(pair).change + " %</td></tr>"
+    $('#compareTable_' + pair).html(row);
+    if (c) {
+        $('#compareTable_' + pair).addClass('color');
+
+        setTimeout(() => {
+            $('#compareTable_' + pair).removeClass('color');
+        }, 500);
+    }
+
+}
+
 // updata table when tick event
 function updateTickerTable(pair, c) {
-    /*let coin = pair.replace(quote + '_', '');
-    let row = "<td class='column1'>" + coin + "</td><td class='column2'>" + exchange.tick(pair).price + "</td><td class='column3'>" + exchange.tick(pair).volume + "</td><td class='column4'>" + exchange.tick(pair).change + "</td>"
-    $('#tickTable_' + pair).html(row);*/
+
+    let coin = pair.replace( '_'+quote , '');
+    let row = "<td class='column1'>" + coin + "</td><td class='column2'>" + exchange.tick(pair).price + "</td><td class='column3'>" + exchange.tick(pair).volume + "</td><td class='column4'>" + exchange.tick(pair).change + " %</td>"
+    $('#tickTable_' + pair).html(row);
     if (c) {
         $('#tickTable_' + pair).addClass('color');
 
@@ -574,7 +741,7 @@ function drawTicker() {
         }
         tickerOption = {
             title: {
-                text: quote + '_' + base,
+                text:  base+'_'+quote,
                 left: 'center'
             },
             tooltip: {
@@ -697,9 +864,6 @@ function drawTicker() {
                         }
                     },
                     data: [{
-                        name: 'XX标点',
-                        coord: ['2013/5/31', 2300],
-                        value: 2300,
                         itemStyle: {
                             normal: {
                                 color: 'rgb(41,60,85)'
@@ -804,10 +968,23 @@ function drawTicker() {
                 lineStyle: {
                     normal: {
                         opacity: 0.5
+
                     }
                 }
             },
             {
+                name: 'MA20',
+                type: 'line',
+                data: calculateMA(20),
+                smooth: true,
+                lineStyle: {
+                    normal: {
+                        opacity: 0.5
+                    }
+                }
+            },
+            {
+
                 name: 'MA30',
                 type: 'line',
                 data: calculateMA(30),
@@ -843,7 +1020,7 @@ function drawTicker() {
 $('#tickerTable').on('click', '.tickTr', async (e) => {
     let target = e.target.tagName.toLowerCase() === 'td' ? $(e.target).parent() : $(e.target);
     timeSpan = 60;
-    base = target.attr('id').replace('tickTable_' + quote + '_', '');
+    base = target.attr('id').replace('tickTable_', '').replace('_'+quote,'');
     exchange.webSockets_unsubscribe(exchange.marketChannel);
     $('#asksTable tbody.data').html('');
     $('#bidsTable tbody.data').html('');
@@ -879,6 +1056,7 @@ $('.btn-quote').on('click', e => {
     $('#tickerTable tbody').html('');
     quote = $(e.target).html();
     writeTickerTable()
+    sortTable($('#tickerTable').get(0), 1, 0); // sortByPrice
 });
 
 //load 100 more
