@@ -1,72 +1,147 @@
 .color {
 	background-color:#ddd;
-
 }
-
 /*button group start*/
 .btn-timespan button {
-	background-color: #4CAF50; /* Green background */
-	border: 1px solid green; /* Green border */
-	color: white; /* White text */
-	padding: 10px 24px; /* Some padding */
-	cursor: pointer; /* Pointer/hand icon */
-	float: left; /* Float the buttons side by side */
+	background-color: #4CAF50;
+	/* Green background */
+	border: 1px solid green;
+	/* Green border */
+	color: white;
+	/* White text */
+	padding: 10px 24px;
+	/* Some padding */
+	cursor: pointer;
+	/* Pointer/hand icon */
+	float: left;
+	/* Float the buttons side by side */
 }
-
 .btn-choose{
-	background-color: #272882;
-	border: 1px solid black; /* Green border */
-	color: white; /* White text */
-	padding: 10px 24px; /* Some padding */
-	cursor: pointer; /* Pointer/hand icon */
-	float: left; /* Float the buttons side by side */
+	background-color: #a8a8a8;
+	border: 1px solid black;
+	/* Green border */
+	color: white;
+	/* White text */
+	padding: 10px 24px;
+	/* Some padding */
+	cursor: pointer;
+	/* Pointer/hand icon */
+	float: left;
+	/* Float the buttons side by side */
 }
-
 .btn-quote button:not(.btn-choose) {
-	background-color: #36304A; /* Green background */
-	border: 1px solid black; /* Green border */
-	color: white; /* White text */
-	padding: 10px 24px; /* Some padding */
-	cursor: pointer; /* Pointer/hand icon */
-	float: left; /* Float the buttons side by side */
+	background-color: #cae8ea;
+	/* Green background */
+	border: 1px solid black;
+	/* Green border */
+	color: black;
+	/* White text */
+	padding: 10px 24px;
+	/* Some padding */
+	cursor: pointer;
+	/* Pointer/hand icon */
+	float: left;
+	/* Float the buttons side by side */
 }
-
 /* Clear floats (clearfix hack) */
 .btn-group:after {
 	content: "";
 	clear: both;
 	display: table;
 }
-
 .btn-group button:not(:last-child) {
-	border-right: none; /* Prevent double borders */
+	border-right: none;
+	/* Prevent double borders */
 }
-
 /* Add a background color on hover */
 .btn-group button:hover {
 	background-color: #3e8e41;
+	color: white;
 }
-
 .btn-quote button:hover {
-	background-color: #272882;
+	background-color: #a8a8a8;
 }
 /*button group end*/
-
-
-/*  Table scroll start*/
+/* Table scroll start*/
 tbody:not(.loadMore) {
-    display:block;
-    height:400px;
-    overflow-y:auto;
-    overflow-x: hidden;
+	display:block;
+	height:400px;
+	overflow-y:auto;
+	overflow-x: hidden;
 }
 thead, tbody tr {
-    display:table;
-    width:100%;
-    table-layout:fixed;/* even columns width , fix width of table too*/
+	display:table;
+	width:100%;
+	table-layout:fixed;
+	/* even columns width , fix width of table too*/
 }
 thead {
-    width: calc( 100% - 1em )/* scrollbar is average 1em/16px width, remove it from thead width */
+	width: calc( 100% - 1em )
+	/* scrollbar is average 1em/16px width, remove it from thead width */
 }
 /* Table scrool end*/
-
+body {
+	font: normal 11px auto "Trebuchet MS", Verdana, Arial, Helvetica, sans-serif;
+	color: #4f6b72;
+	background: #E6EAE9;
+}
+a {
+	color: #c75f3e;
+}
+#mytable {
+	width: 400px;
+	padding: 0;
+	margin: 0;
+}
+caption {
+	padding: 0 0 5px 0;
+	width: 700px;
+	font: italic 11px "Trebuchet MS", Verdana, Arial, Helvetica, sans-serif;
+	text-align: right;
+}
+th {
+	font: bold 11px "Trebuchet MS", Verdana, Arial, Helvetica, sans-serif;
+	color: #4f6b72;
+	border-right: 1px solid #C1DAD7;
+	border-bottom: 1px solid #C1DAD7;
+	border-top: 1px solid #C1DAD7;
+	letter-spacing: 2px;
+	text-transform: uppercase;
+	text-align: left;
+	padding: 6px 6px 6px 12px;
+	background: #CAE8EA;
+}
+th.nobg {
+	border-top: 0;
+	border-left: 0;
+	border-right: 1px solid #C1DAD7;
+	background: none;
+}
+td {
+	cursor: pointer;
+	border-right: 1px solid #C1DAD7;
+	border-bottom: 1px solid #C1DAD7;
+	font-size:11px;
+	padding: 6px 6px 6px 12px;
+	color: #4f6b72;
+}
+tr:hover {
+	background: #F5FAFA;
+	color: #797268;
+}
+th.spec {
+	border-left: 1px solid #C1DAD7;
+	border-top: 0;
+	background: #fff;
+	font: bold 10px "Trebuchet MS", Verdana, Arial, Helvetica, sans-serif;
+}
+th.specalt {
+	border-left: 1px solid #C1DAD7;
+	border-top: 0;
+	background: #f5fafa;
+	font: bold 10px "Trebuchet MS", Verdana, Arial, Helvetica, sans-serif;
+	color: #797268;
+}
+html>body td {
+	font-size:11px;
+}

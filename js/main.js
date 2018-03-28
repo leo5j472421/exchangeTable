@@ -34,18 +34,26 @@ var base = 'ETH';
 var quote = 'USDT';
 var tradeDisplayLimit = 50;
 var volume = [];
-var cps = ['BTC_USDT','ETH_USDT']
+var currencyPairs = ['BTC_USDT','ETH_USDT','LTC_USDT','BCH_USDT']
+
+
 bitfinex = function(currencyPairs) {
     this.cp = currencyPairs;
     const exchangeName = 'Bitfinex';
-    const pairNameMap = {
-        'BTC_USDT': 'tBTCUSD',
-        'ETH_USDT': 'tETHUSD',
-    };
+    let pairNameMap = {};
+    let symbol2pair = {};
+
+    for ( let cp of currencyPairs ){
+        pairNameMap[cp] = `t${cp.replace('USDT','USD').replace('_','')}`;
+        symbol2pair[`t${cp.replace('USDT','USD').replace('_','')}`] = cp;
+    }
+
+
+    let id2symbol={};
     const cps = currencyPairs.map(cp => pairNameMap[cp]);
     const w = new WebSocket('wss://api.bitfinex.com/ws/2');
-
-
+    let tickinit = false;
+    let traderinit = false;
     // store info
     let pairInfos = cps.reduce((map, obj) => {
         map[obj] = {
@@ -54,6 +62,7 @@ bitfinex = function(currencyPairs) {
         };
         return map;
     }, {});
+
     let id2pair = {};
 
 
@@ -80,16 +89,19 @@ bitfinex = function(currencyPairs) {
         // heartbeat, snapshot, update
         if (data instanceof Array) {
             if (data[1] === 'hb') return;
+
             switch (id2pair[data[0]].channel) {
                 case 'ticker':
-                Object.assign(id2pair[data[0]].pair, {
-                    lastPrice: data[1][6],
-                    change: data[1][5]*100,
+                Object.assign(id2pair[data[0]].pair, {            // tickerEvent
+                    price: data[1][6],
+                    change: (data[1][5]*100).toFixed(3),
                     volume: data[1][7]
                 });
+                if ( currencyPairs.includes(symbol2pair[id2symbol[data[0]]]))
+                    updateCompareTable(symbol2pair[id2symbol[data[0]]],true) ;
                 break;
                 case 'book':
-                    if (data[1][0] instanceof Array) {  // receive snapshot
+                    if (data[1][0] instanceof Array) {  // receive snapshot   //traderInit
                         data[1].forEach(record => {
                             let price = record[0],
                             amount = record[2];
@@ -132,26 +144,26 @@ bitfinex = function(currencyPairs) {
                 }
             }
 
-        // subscribed
+        // subscribed Success
         else if (data instanceof Object) {
             if (data.event === 'subscribed') {
+                id2symbol[data.chanId] = data.symbol;
                 id2pair[data.chanId] = {
                     channel: data.channel,
                     pair: pairInfos[data.symbol]
                 };
             }
             else if (data.event === 'error') {
-                console.error(data);
             }
         }
     }
 
 
     // public
-    this.ticker = (currencyPair) => {
+    this.tick = (currencyPair) => {
         let pairInfo = pairInfos[pairNameMap[currencyPair]];
         return {
-            lastPrice: pairInfo.lastPrice,
+            price: pairInfo.price,
             change: pairInfo.change,
             volume: pairInfo.volume
         };
@@ -175,11 +187,6 @@ poloniex = function() {
             'bids': {}
         }
     };
-    /*this.tick = {};
-    this.trade = {
-        'asks': {},
-        'bids': {}
-    };*/
 
     function reserve(str){
         s = str.split('_');
@@ -215,7 +222,8 @@ poloniex = function() {
             self.tick[cp].change = (parseFloat(data[4]) * 100).toFixed(3);
             if (cp.includes('_'+quote)){
                 updateTickerTable(cp, change);
-                updateCompareTable(cp, change);
+                if ( currencyPairs.includes(cp))
+                    updateCompareTable(cp, change);
             }
 
 
@@ -287,9 +295,6 @@ poloniex = function() {
             }
         }
 
-
-        //n = Object.keys(self.trade.asks).map(parseFloat);
-        //console.log(Math.min(...n));
     }
 
     function tradeInit(data, cp) {
@@ -379,7 +384,6 @@ poloniex = function() {
                     'asks': {},
                     'bids': {}
                 }
-                console.log(data)
                 if (data[1] === 0); // unsubscript
                 else if (data[2][0][0] === 'i') { // TradeInit
                     t.marketChannel = channel;
@@ -400,17 +404,15 @@ poloniex = function() {
 };
 
 const exchange = new poloniex();
-const b = new bitfinex(cps);
+const exchange1 = new bitfinex(currencyPairs);
 exchange.start(); // websocket Start
 
-
-setTimeout(()=>{console.log(b.ticker('ETH_USDT'))},3000);
 
 
 function writeCompareTable(){
     let row ;
-    for ( let cp of cps ){
-     row = "<tr class='tickTr' id=compareTable_" + cp + "><td class='column1' >" + cp + "</td><td class='column2'>" + exchange.tick(cp).price + "</td><td class='column3'>" + exchange.tick(cp).change + "</td><td class='column4'></td></tr>"
+    for ( let cp of currencyPairs ){
+     row = "<tr class='tickTr' id=compareTable_" + cp + "><td class='column1' >" + cp.replace('_USDT','') + "</td><td class='column2'>" + exchange.tick(cp).price + "</td><td class='column3'>" + exchange.tick(cp).change + " %</td><td class='column2'>" + exchange1.tick(cp).price + "</td><td class='column3'>" + exchange1.tick(cp).change + " %</td></tr>"
      $('#comparetable tbody').append(row);
  }
 }
@@ -422,7 +424,7 @@ function writeTickerTable(e) {
 
         if (pair.includes('_'+quote )) {
             coin = pair.replace('_'+quote , '');
-            row = "<tr class='tickTr' id=tickTable_" + pair + "><td class='column1' >" + coin + "</td><td class='column2'>" + exchange.tick(pair).price + "</td><td class='column3'>" + exchange.tick(pair).volume + "</td><td class='column4'>" + exchange.tick(pair).change + "</td></tr>"
+            row = "<tr class='tickTr' id=tickTable_" + pair + "><td class='column1' >" + coin + "</td><td class='column2'>" + exchange.tick(pair).price + "</td><td class='column3'>" + exchange.tick(pair).volume + "</td><td class='column4'>" + exchange.tick(pair).change + " %</td></tr>"
             $('#tickerTable tbody').append(row);
         }
     }
@@ -430,7 +432,7 @@ function writeTickerTable(e) {
 }
 
 function updateCompareTable(pair,c){
-    let row = "<tr class='tickTr' id=tickTable_" + pair + "><td class='column1' >" + pair + "</td><td class='column2'>" + exchange.tick(pair).price + "</td><td class='column3'>" + exchange.tick(pair).change + "</td><td class='column4'></td></tr>"
+    let row = "<tr class='tickTr' id=tickTable_" + pair + "><td class='column1' >" + pair.replace('_USDT','') + "</td><td class='column2'>" + exchange.tick(pair).price + "</td><td class='column3'>" + exchange.tick(pair).change + " %</td><td class='column2'>" + exchange1.tick(pair).price + "</td><td class='column3'>" + exchange1.tick(pair).change + " %</td></tr>"
     $('#compareTable_' + pair).html(row);
     if (c) {
         $('#compareTable_' + pair).addClass('color');
@@ -445,7 +447,7 @@ function updateCompareTable(pair,c){
 // updata table when tick event
 function updateTickerTable(pair, c) {
     let coin = pair.replace( '_'+quote , '');
-    let row = "<td class='column1'>" + coin + "</td><td class='column2'>" + exchange.tick(pair).price + "</td><td class='column3'>" + exchange.tick(pair).volume + "</td><td class='column4'>" + exchange.tick(pair).change + "</td>"
+    let row = "<td class='column1'>" + coin + "</td><td class='column2'>" + exchange.tick(pair).price + "</td><td class='column3'>" + exchange.tick(pair).volume + "</td><td class='column4'>" + exchange.tick(pair).change + " %</td>"
     $('#tickTable_' + pair).html(row);
     if (c) {
         $('#tickTable_' + pair).addClass('color');
@@ -669,7 +671,7 @@ function drawTicker() {
         }
         tickerOption = {
             title: {
-                text: quote + '_' + base,
+                text:  base+'_'+quote,
                 left: 'center'
             },
             tooltip: {
@@ -792,9 +794,6 @@ function drawTicker() {
                         }
                     },
                     data: [{
-                        name: 'XX标点',
-                        coord: ['2013/5/31', 2300],
-                        value: 2300,
                         itemStyle: {
                             normal: {
                                 color: 'rgb(41,60,85)'
@@ -973,7 +972,8 @@ $('.btn-quote').on('click', e => {
     $(e.target).addClass('btn-choose');
     $('#tickerTable tbody').html('');
     quote = $(e.target).html();
-    writeTickerTable(null)
+    writeTickerTable()
+    sortTable($('#tickerTable').get(0), 1, 0); // sortByPrice
 });
 
 //load 100 more
