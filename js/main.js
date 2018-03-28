@@ -34,6 +34,7 @@ var base = 'ETH';
 var quote = 'USDT';
 var tradeDisplayLimit = 50;
 var volume = [];
+
 var currencyPairs = ['BTC_USDT','ETH_USDT','LTC_USDT','BCH_USDT']
 
 
@@ -177,7 +178,6 @@ bitfinex = function(currencyPairs) {
     };
 };
 
-
 poloniex = function() {
     let t = this;
     let self = {
@@ -283,6 +283,7 @@ poloniex = function() {
             if (data[0] === 'o') {
                 let side = data[1] ? 'bids' : 'asks';
                 let rate = parseFloat(data[2]).toString();
+                
                 if (data[3] === '0.00000000') {
                     delete self.trade[side][rate];
                     removeTradeRow(side, rate);
@@ -291,6 +292,7 @@ poloniex = function() {
                     updateTradeTable(side, rate);
 
                 }
+                
 
             }
         }
@@ -307,6 +309,7 @@ poloniex = function() {
                     else self.trade.asks[parseFloat(rate).toString()] = parseFloat(data[a][rate]);
                 }
             }
+
             writeTradeTable('asks');
             writeTradeTable('bids');
             resolve();
@@ -324,7 +327,6 @@ poloniex = function() {
             };
             conn.send(JSON.stringify(params));
             console.log(`Subscribe Channel ${channel}`);
-            return quote + '_' + base
         }
     }
 
@@ -343,18 +345,98 @@ poloniex = function() {
         }
     }
 
-    this.start = function() {
+    function clear() {
+        self = {
+            'tick': {},
+            'trade': {
+                'asks': {},
+                'bids': {}
+            }
+        };
 
+        t.marketChannel = 0;
+        ids = {};
+        cps = {};
+
+    }
+
+    function creatTickerVue(){
+        console.log(self.tick);
+        return new Vue({
+            'el':'.table100',
+            'data': {
+                'quote': quote,
+                'tickers' : self.tick
+            },
+            methods: {
+                quoteClick: event=>{
+                    $(event.target).siblings('.btn-choose').removeClass('btn-choose');
+                    $(event.target).addClass('btn-choose');
+                    quote = event.target.innerText;
+                    tickVue.$data.quote = quote ;
+                    setTimeout(()=>{sortTable($('#tickerTable').get(0), 1, 0)},100);
+                    //sortTable($('#tickerTable').get(0), 1, 0);
+                },
+                sort:event=>{
+                    sortTable($(event.target).parents('table').get(0), $(event.target).index(), 0)
+                }
+                ,
+                tdId: pair=>{
+                    return 'tickTable_' + pair 
+                },
+                test: event=>{
+
+                    console.log(event)
+                    $(event.target).parent().addClass('color');
+                    setTimeout(() => {
+                        $(event.target).parent().removeClass('color');
+                    }, 500);
+                },
+                changePair:async e => {
+                    let target = e.target.tagName.toLowerCase() === 'td' ? $(e.target).parent() : $(e.target);
+                    timeSpan = 60;
+                    base = target.attr('id').replace('tickTable_' + quote + '_', '');
+                    exchange.webSockets_unsubscribe(exchange.marketChannel);
+                    $('#asksTable tbody.data').html('');
+                    $('#bidsTable tbody.data').html('');
+                    $('.traderTable thead tr th.column2').html(base);
+                    $('.traderTable thead tr th.column3').html(quote);
+                    $('.traderTable thead tr th.column4').html(`Sum(${quote})`);
+                    exchange.webSockets_subscribe(quote + '_' + base);
+                    $('#container').block({
+                        message: '<img src="img/loading.gif" />',
+                        css: {
+                            border: 'none',
+                            backgroundColor: 'transparent'
+                        }
+                    });
+
+                    await drawTicker()
+                    $('#container').unblock();
+                }
+
+            },
+            watch:{
+                'tickers.USDT_BTC.price': event=>{
+                    //console.log(event);
+                }
+            }
+
+        })
+    }
+
+    this.start = function() {
+        clear();
         const mySocket = new WebSocket(wsuri);
 
         mySocket.onopen = async function(e) {
-
             self.conn = e.target;
             await tickInit()
             channel = t.webSockets_subscribe(1002)
             t.webSockets_subscribe('USDT_ETH')
             writeTickerTable();
             writeCompareTable();
+
             sortTable($('#tickerTable').get(0), 1, 0); //SortByPrice
             await drawTicker();
             $('#container').unblock();
@@ -367,8 +449,8 @@ poloniex = function() {
         };
 
         mySocket.onmessage = async function(e) {
-            data = JSON.parse(e.data);
-            channel = data[0];
+            let data = JSON.parse(e.data);
+            let channel = data[0];
             var cp =
             ids[channel];
             if (channel === 1002) {
@@ -446,6 +528,7 @@ function updateCompareTable(pair,c){
 
 // updata table when tick event
 function updateTickerTable(pair, c) {
+
     let coin = pair.replace( '_'+quote , '');
     let row = "<td class='column1'>" + coin + "</td><td class='column2'>" + exchange.tick(pair).price + "</td><td class='column3'>" + exchange.tick(pair).volume + "</td><td class='column4'>" + exchange.tick(pair).change + " %</td>"
     $('#tickTable_' + pair).html(row);
@@ -518,7 +601,7 @@ function updateTradeSum(side) {
 
 //get trade history from poloniex api
 function getHistoryData(pair) {
-    return new Promise(resolve => {
+    return new Promise(async (resolve) => {
         let starttime = (Date.now() / 1000) - 86400 * 30
         let datas = []
         try {
@@ -533,21 +616,8 @@ function getHistoryData(pair) {
                 resolve(datas); // Orginal Data from api
             });
         } catch (err) {
-            console.log(err)
-            alert('wait');
-            setTimeout(() => {
-                $.getJSON(`https://poloniex.com/public?command=returnTradeHistory&currencyPair=${pair}&start=${starttime}`, data => {
-                    for (let trade of data) {
-                        trade.date = new Date(trade.date).getTime() / 1000;
-                        datas.push(trade)
-                    }
-                    datas.sort((x, y) => {
-                        return x.date - y.date
-                    })
-                    resolve(datas); // Orginal Data from api
-                });
-
-            }, 500);
+            r = getHistoryData(pair);
+            resolve(r)
         }
     });
 }
@@ -898,10 +968,23 @@ function drawTicker() {
                 lineStyle: {
                     normal: {
                         opacity: 0.5
+
                     }
                 }
             },
             {
+                name: 'MA20',
+                type: 'line',
+                data: calculateMA(20),
+                smooth: true,
+                lineStyle: {
+                    normal: {
+                        opacity: 0.5
+                    }
+                }
+            },
+            {
+
                 name: 'MA30',
                 type: 'line',
                 data: calculateMA(30),
