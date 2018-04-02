@@ -20,22 +20,163 @@ $('#container').block({
     }
 });
 
-var historydata = [];
-var start;
-var startTime;
-var start;
+var historydata = [];  // orginal data from poloniex reset api
+var start;             // for candle chart
+var startTime;         
 var open;
 var close = open;
 var high = open;
 var low = open;
-var data0 = []
+var data0 = []      // Data for candle Chart
 var timeSpan = 60;
 var base = 'ETH';
 var quote = 'USDT';
 var tradeDisplayLimit = 50;
-var volume = [];
-
+var volume = [];  // ticker volume chart
+var reader = new FileReader();
 var currencyPairs = ['BTC_USDT','ETH_USDT','LTC_USDT','BCH_USDT']
+
+
+console.log(pako);
+
+huobi = function(currencyPairs) {
+    const exchanceName = 'Huobi';
+
+    const cps = currencyPairs.map(cp => {
+        return cp.replace('_', '').toLowerCase();
+    });
+
+    const tickerTopics = cps.map(cp => {
+        return "market." + cp + ".detail";
+    });
+
+    const orderBookTopics = cps.map(cp => {
+        return "market." + cp + ".depth.step0";
+    });
+
+    let pairInfos = {};
+    cps.forEach(cp => {
+        pairInfos[cp] = {
+            ticker: {
+                lastPrice: null,
+                change: null,
+                volume: null
+            },
+            orderBook: {
+                asks: {},
+                bids: {}
+            }
+        }
+    });
+
+    /*
+    let getResponse = url => {
+        let res = request('GET', url, {
+            'headers': {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            }
+        });
+        return JSON.parse(res.getBody('utf8'));
+    };*/
+
+    // initialize ticker from rest api
+    /*cps.forEach(cp => {
+        let ticker = getResponse('https://api.huobi.pro/market/detail/merged?symbol=' + cp);
+        Object.assign(pairInfos[cp].ticker, {
+            lastPrice: ticker.tick.close,
+            volume: ticker.tick.vol
+        });
+    });*/
+
+    const w = new WebSocket('wss://api.huobi.pro/ws');
+
+    w.onopen= () => {
+        // ticker's channel
+        tickerTopics.forEach(t => {
+            w.send(JSON.stringify({
+                sub: t,
+                id: "Huobi"
+            }));
+        });
+
+        // order books' channel
+        orderBookTopics.forEach(t => {
+            w.send(JSON.stringify({
+                sub: t,
+                id: "Huobi"
+            }));
+        });
+    }
+
+    w.onmessage = msg => {
+        // unzip the msg first
+        var reader = new FileReader();
+        reader.addEventListener("loadend", () => {
+            data =  JSON.parse(pako.inflate(reader.result, {to: "string"}));
+
+            if ('status' in data) {
+                switch (data.status) {
+                    case 'ok':
+                    // successfully subscribe
+                    // console.log('Successfully subscribe to ' + data.subbed);
+                    break;
+                    case 'error':
+                    // fail to subscribe
+                    console.error('error code: ' + data['err-code'], ', error message: ' + data['err-msg']);
+                    break;
+                }
+            }
+            else if ('ping' in data) {
+            // ping-pong test
+            w.send(JSON.stringify({
+                pong: data.ping
+            }));
+        }
+        else if (tickerTopics.includes(data.ch)) {
+            // parse ticker's channel
+            let cp = data.ch.split('.')[1];
+            Object.assign(pairInfos[cp].ticker, {
+                price: data.tick.close,
+                volume: data.tick.vol
+            });
+        }
+        else if (orderBookTopics.includes(data.ch)) {
+            // parse order books' channel
+            let cp = data.ch.split('.')[1];
+            let orderBook = data.tick;
+            
+            ['asks', 'bids'].forEach(side => {
+                orderBook[side].forEach(order => {
+                    let price = order[0];
+                    let amount = order[1];
+                    if (amount < Number.EPSILON) {
+                        // remove this order
+                        delete pairInfos[cp].orderBook[side][price];
+                    }
+                    else {
+                        // modify this order
+                        pairInfos[cp].orderBook[side][price] = amount;
+                    }
+                });
+            });
+        }
+
+    });
+        reader.readAsArrayBuffer(msg.data);
+
+
+
+    };
+
+    
+    this.tick = currencyPair => {
+        return pairInfos[currencyPair.replace('_', '').toLowerCase()].ticker;
+    };
+
+    this.trader = currencyPair => {
+        return pairInfos[currencyPair.replace('_', '').toLowerCase()].orderBook;
+    };
+}
 
 
 bitfinex = function(currencyPairs) {
@@ -53,8 +194,6 @@ bitfinex = function(currencyPairs) {
     let id2symbol={};
     const cps = currencyPairs.map(cp => pairNameMap[cp]);
     const w = new WebSocket('wss://api.bitfinex.com/ws/2');
-    let tickinit = false;
-    let traderinit = false;
     // store info
     let pairInfos = cps.reduce((map, obj) => {
         map[obj] = {
@@ -75,11 +214,15 @@ bitfinex = function(currencyPairs) {
                 channel: 'ticker',
                 symbol: cp
             }));
+
+            /*
             w.send(JSON.stringify({
                 event: 'subscribe',
-                channel: 'book',
+                channel: 'book',                       // orderBook Channel
                 symbol: cp
             }));
+
+            */
         });
     }
 
@@ -99,9 +242,11 @@ bitfinex = function(currencyPairs) {
                     volume: data[1][7]
                 });
                 if ( currencyPairs.includes(symbol2pair[id2symbol[data[0]]]))
-                    updateCompareTable(symbol2pair[id2symbol[data[0]]],true) ;
+                    updateCompareTicker(symbol2pair[id2symbol[data[0]]],true) ;
                 break;
                 case 'book':
+
+                /*   Trader init event
                     if (data[1][0] instanceof Array) {  // receive snapshot   //traderInit
                         data[1].forEach(record => {
                             let price = record[0],
@@ -142,6 +287,7 @@ bitfinex = function(currencyPairs) {
                         }
                     }
                     break;
+                    */
                 }
             }
 
@@ -207,15 +353,13 @@ poloniex = function() {
     this.marketChannel = 0;
     let ids = {};
     let cps = {};
-
     function tickEvent(data) {
         cp = ids[data[0]];
         let change = false
-
         try {
             if (self.tick[cp].price !== parseFloat(data[1]))
                 change = true;
-            self.tick[cp].price = parseFloat(data[1]);
+            self.tick[cp].price = parseFloat(data[1]).toFixed(5);
             self.tick[cp].high = parseFloat(data[8]);
             self.tick[cp].low = parseFloat(data[9]);
             self.tick[cp].volume = parseFloat(data[5]).toFixed(3);
@@ -223,18 +367,14 @@ poloniex = function() {
             if (cp.includes('_'+quote)){
                 updateTickerTable(cp, change);
                 if ( currencyPairs.includes(cp))
-                    updateCompareTable(cp, change);
+                    updateCompareTicker(cp, change);
             }
-
-
             trade = {
                 'rate': self.tick[cp].price,
                 'date': Date.now() / 1000
             }
-
             if (cp === quote + '_' + base) {
                 if (trade.date > startTime + timeSpan) {
-
                     data0.categoryData.push(start)
                     data0.values.push([open, close, low, high])
                     startTime = trade.date;
@@ -243,8 +383,6 @@ poloniex = function() {
                     high = open;
                     low = open;
                 }
-
-
                 if (trade.rate > high)
                     high = trade.rate;
                 else if (trade.rate < low)
@@ -256,6 +394,7 @@ poloniex = function() {
         }
     }
 
+
     function tickInit() {
         return new Promise(resolve => {
             $.getJSON('https://poloniex.com/public?command=returnTicker', data => {
@@ -264,7 +403,7 @@ poloniex = function() {
                     ids[data[d]['id']] = reserve(d);
                     cps[reserve(d)] = data[d]['id'];
                     self.tick[reserve(d)] = {
-                        'price': parseFloat(data[d].last),
+                        'price': parseFloat(data[d].last).toFixed(5),
                         'volume': parseFloat(data[d].baseVolume).toFixed(3),
                         'change': (parseFloat(data[d].percentChange) * 100).toFixed(3),
                         'high': parseFloat(data[d].high24hr),
@@ -274,7 +413,6 @@ poloniex = function() {
                 resolve();
             })
         })
-
     }
 
     function tradeEvent(datas, cp) {
@@ -309,7 +447,6 @@ poloniex = function() {
                     else self.trade.asks[parseFloat(rate).toString()] = parseFloat(data[a][rate]);
                 }
             }
-
             writeTradeTable('asks');
             writeTradeTable('bids');
             resolve();
@@ -361,7 +498,6 @@ poloniex = function() {
     }
 
     function creatTickerVue(){
-        console.log(self.tick);
         return new Vue({
             'el':'.table100',
             'data': {
@@ -379,8 +515,7 @@ poloniex = function() {
                 },
                 sort:event=>{
                     sortTable($(event.target).parents('table').get(0), $(event.target).index(), 0)
-                }
-                ,
+                },
                 tdId: pair=>{
                     return 'tickTable_' + pair 
                 },
@@ -431,15 +566,14 @@ poloniex = function() {
 
         mySocket.onopen = async function(e) {
             self.conn = e.target;
+            drawTicker().then(()=>{$('#container').unblock()});
             await tickInit()
             channel = t.webSockets_subscribe(1002)
             t.webSockets_subscribe('USDT_ETH')
             writeTickerTable();
-            writeCompareTable();
-
+            writeCompareTicker();
             sortTable($('#tickerTable').get(0), 1, 0); //SortByPrice
-            await drawTicker();
-            $('#container').unblock();
+            
         }
 
         mySocket.onerror = function(e) {
@@ -487,16 +621,30 @@ poloniex = function() {
 
 const exchange = new poloniex();
 const exchange1 = new bitfinex(currencyPairs);
+const exchange2 = new huobi(currencyPairs);
 exchange.start(); // websocket Start
 
 
 
-function writeCompareTable(){
+function writeCompareTicker(){
     let row ;
     for ( let cp of currencyPairs ){
-     row = "<tr class='tickTr' id=compareTable_" + cp + "><td class='column1' >" + cp.replace('_USDT','') + "</td><td class='column2'>" + exchange.tick(cp).price + "</td><td class='column3'>" + exchange.tick(cp).change + " %</td><td class='column2'>" + exchange1.tick(cp).price + "</td><td class='column3'>" + exchange1.tick(cp).change + " %</td></tr>"
-     $('#comparetable tbody').append(row);
- }
+       row = "<tr class='tickTr' id=compareTable_" + cp + "><td class='column1' >" + cp.replace('_USDT','') + "</td><td class='column2'>" + exchange.tick(cp).price + "</td><td class='column3'>" + exchange.tick(cp).change + " %</td><td class='column2'>" + exchange1.tick(cp).price + "</td><td class='column3'>" + exchange1.tick(cp).change + " %</td></tr>"
+       $('#comparetable tbody').append(row);
+   }
+}
+
+function updateCompareTicker(pair,c){
+    let row = "<tr class='tickTr' id=tickTable_" + pair + "><td class='column1' >" + pair.replace('_USDT','') + "</td><td class='column2'>" + exchange.tick(pair).price + "</td><td class='column3'>" + exchange.tick(pair).change + " %</td><td class='column2'>" + exchange1.tick(pair).price + "</td><td class='column3'>" + exchange1.tick(pair).change + " %</td></tr>"
+    $('#compareTable_' + pair).html(row);
+    if (c) {
+        $('#compareTable_' + pair).addClass('color');
+
+        setTimeout(() => {
+            $('#compareTable_' + pair).removeClass('color');
+        }, 500);
+    }
+
 }
 
 
@@ -511,19 +659,6 @@ function writeTickerTable(e) {
         }
     }
     return e
-}
-
-function updateCompareTable(pair,c){
-    let row = "<tr class='tickTr' id=tickTable_" + pair + "><td class='column1' >" + pair.replace('_USDT','') + "</td><td class='column2'>" + exchange.tick(pair).price + "</td><td class='column3'>" + exchange.tick(pair).change + " %</td><td class='column2'>" + exchange1.tick(pair).price + "</td><td class='column3'>" + exchange1.tick(pair).change + " %</td></tr>"
-    $('#compareTable_' + pair).html(row);
-    if (c) {
-        $('#compareTable_' + pair).addClass('color');
-
-        setTimeout(() => {
-            $('#compareTable_' + pair).removeClass('color');
-        }, 500);
-    }
-
 }
 
 // updata table when tick event
@@ -557,7 +692,7 @@ function writeTradeTable(side) {
         });
     for (let index = 0; index <= tradeDisplayLimit && index < rates.length; index++) {
         let rate = rates[index].toString();
-        row = "<tr class='" + side + "Tr' id=" + rate.toString() + side + "><td class='column1' >" + rate + "</td><td class='column2'>" + exchange.trade(side)[rate] + "</td><td class='column3'>" + exchange.trade(side)[rate] * parseFloat(rate) + "</td><td class='column4'>" + exchange.trade(side)[rate] + "</td></tr>";
+        row = "<tr class='" + side + "Tr' id=" + rate.toString() + side + "><td class='column1' >" + rate + "</td><td class='column2'>" + exchange.trade(side)[rate].toFixed(5) + "</td><td class='column3'>" + (exchange.trade(side)[rate] * parseFloat(rate)).toFixed(5)  + "</td><td class='column4'>" + exchange.trade(side)[rate]+ "</td></tr>";
         $('#' + side + 'Table tbody.data').append(row);
     }
 
@@ -567,7 +702,7 @@ function writeTradeTable(side) {
 
 function updateTradeTable(side, rate) {
     rate = rate.toString();
-    let row = "<td class='column1'>" + rate + "</td><td class='column2'>" + exchange.trade(side)[rate] + "</td><td class='column3'>" + exchange.trade(side)[rate] * parseFloat(rate) + "</td><td class='column4'>" + exchange.trade(side)[rate] + "</td>"
+    let row = "<td class='column1'>" + rate + "</td><td class='column2'>" + exchange.trade(side)[rate].toFixed(5) + "</td><td class='column3'>" + (parseFloat(exchange.trade(side)[rate]) * parseFloat(rate) ).toFixed(5) + "</td><td class='column4'>" + exchange.trade(side)[rate] + "</td>"
     if ($('#' + rate.replace('.', '\\.') + side).html() === undefined) {
         $('#' + side + 'Table tbody.data tr:last').after("<tr class='" + side + "Tr' id=" + rate.toString() + side + ">" + row + '</tr>');
         if (side === 'asks')
@@ -591,10 +726,11 @@ function removeTradeRow(side, rate) {
 
 
 function updateTradeSum(side) {
-    let sum = 0;
+    let sum = 0.0;
     $('.' + side + 'Tr').each(function() {
-        sum += parseFloat($(this).children('.column3').html())
-        $(this).children('.column4').html(sum);
+        sum = sum + parseFloat($(this).children('.column3').html()) ;
+
+        $(this).children('.column4').html(sum.toFixed(5));
     });
 }
 

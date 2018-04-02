@@ -1,18 +1,18 @@
 <!DOCTYPE html>
 
 <html xmlns="http://www.w3.org/1999/xhtml">
+
 <head>
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     <title>Echange Table</title>
     <link rel="Shortcut Icon" type="image/x-icon" href="img/icon.jpg" />
-    <link rel="stylesheet" type="text/css" href="css/bootstrap.min.css">
+    <link rel="stylesheet" type="text/css" href="css/bootstrap.css">
     <link rel="stylesheet" type="text/css" href="fonts/font-awesome-4.7.0/css/font-awesome.min.css">
     <link rel="stylesheet" type="text/css" href="css/color.css">
     <link rel="stylesheet" type="text/css" href="css/main.css">
-    <link rel="stylesheet" type="text/css" href="assets/animate.css">
-    <!--link href="css/theme.default.min.css" rel="stylesheet"-->
 
 </head>
+
 <body>
 
 
@@ -30,7 +30,7 @@
                     <button class='btn-choose'>USDT</button>
 
                 </div>
-                <table id="tickerTable"  >
+                <table id="tickerTable">
                     <thead>
                         <tr class="table100-head">
                             <th class="column1">Coin</th>
@@ -51,7 +51,7 @@
         <div class="row">
             <div class="col-md-4"></div>
             <div class="col-md-4">
-                <table id="comparetable"  >
+                <table id="comparetable">
                     <thead>
                         <tr class="table100-head">
                             <th class="column1">Currency Pair</th>
@@ -59,7 +59,6 @@
                             <th class="column3">Change A</th>
                             <th class="column4">Price B</th>
                             <th class="column5">Change B</th>
-
                         </tr>
                     </thead>
                     <tbody>
@@ -74,87 +73,87 @@
 
         <br><br><br>
 
-        
+
 
     </div>
 
     <div id="container" style="height: 100%"></div>
     <div class="btn-group btn-timespan">
-      <button timeSpan='60' >1min</button>
-      <button timeSpan='300' >5min</button>
-      <button timeSpan='900' >15min</button>
-      <button timeSpan='1800'>30min</button>
-      <button timeSpan='3600'>1hour</button>
-  </div>
+        <button timeSpan='60'>1min</button>
+        <button timeSpan='300'>5min</button>
+        <button timeSpan='900'>15min</button>
+        <button timeSpan='1800'>30min</button>
+        <button timeSpan='3600'>1hour</button>
+    </div>
 
-  <div>
+    <div>
 
-    <div class="row">
-        <div class="col-md-4"></div>
-        <div class="col-md-4">
-            <table id="asksTable" class='traderTable'>
-                <thead>
-                    <tr class="table100-head">
-                        <th class="column1">Price</th>
-                        <th class="column2">ETH</th>
-                        <th class="column3">USDT</th>
-                        <th class="column4">Sum(USDT)</th>
-                    </tr>
-                </thead>
-                <tbody class='data'>
-                </tbody>
-                <tbody class='loadMore'>
-                    <td>Load 100 More</td>
-                </tbody>
-            </table>
+        <div class="row">
+            <div class="col-md-4"></div>
+            <div class="col-md-4">
+                <table id="asksTable" class='traderTable'>
+                    <thead>
+                        <tr class="table100-head">
+                            <th class="column1">Price</th>
+                            <th class="column2">ETH</th>
+                            <th class="column3">USDT</th>
+                            <th class="column4">Sum(USDT)</th>
+                        </tr>
+                    </thead>
+                    <tbody class='data'>
+                    </tbody>
+                    <tbody class='loadMore'>
+                        <td>Load 100 More</td>
+                    </tbody>
+                </table>
+            </div>
+            <div class="col-md-4"></div>
         </div>
-        <div class="col-md-4"></div>
+
+
+
+
+        <br><br><br>
+
+
+        <div class="row">
+            <div class="col-md-4"></div>
+            <div class="col-md-4">
+                <table id="bidsTable" class='traderTable'>
+                    <thead>
+                        <tr class="table100-head">
+                            <th class="column1">Price</th>
+                            <th class="column2">ETH</th>
+                            <th class="column3">USDT</th>
+                            <th class="column4">Sum(USDT)</th>
+                        </tr>
+                    </thead>
+                    <tbody class='data'>
+                    </tbody>
+                    <tbody class='loadMore'>
+                        <td>Load 100 More</td>
+                    </tbody>
+                </table>
+            </div>
+            <div class="col-md-4"></div>
+        </div>
     </div>
-
-
-
-
-    <br><br><br>
-
-
-    <div class="row">
-        <div class="col-md-4"></div>
-        <div class="col-md-4">
-         <table id="bidsTable" class='traderTable'>
-            <thead>
-                <tr class="table100-head">
-                    <th class="column1">Price</th>
-                    <th class="column2">ETH</th>
-                    <th class="column3">USDT</th>
-                    <th class="column4">Sum(USDT)</th>
-                </tr>
-            </thead>
-            <tbody class='data'>
-            </tbody>
-            <tbody class='loadMore'>
-                <td>Load 100 More</td>
-            </tbody>
-        </table>
-    </div>
-    <div class="col-md-4"></div>
-</div>
-
-
-
-</div>
-<br><br><br><br><br><br><br><br>
-<div id="tradeChart" style="height: 100%"></div>    <!--Market Depth Chart-->
+    <br><br><br><br><br><br><br><br>
+    <div id="tradeChart" style="height: 100%"></div>
+    <!--Market Depth Chart-->
 
 </body>
+<!--Jquery admintion-->
 <script src="js/jquery-3.3.1.min.js"></script>
 <!--Block admintion-->
-<script src="js/jquery.blockUI.js"></script> 
+<script src="js/jquery.blockUI.js"></script>
 <!--Echart js-->
-
 <script type="text/javascript" src="js/Echart.js"></script>
 <!--pako-->
-<script type="text/javascript" src="https://cdn.jsdelivr.net/pako/1.0.3/pako.min.js"></script>  
-<!--Poloniex Websocket-->
+<script type="text/javascript" src="https://cdn.jsdelivr.net/pako/1.0.3/pako.min.js"></script>
+<!--Jquery admintion-->
+<script src="js/require.js"></script>
+<!--Websocket Data Fetch-->
 <script src="js/main.js"></script>
 
 </html>
